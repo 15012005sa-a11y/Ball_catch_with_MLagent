@@ -4,8 +4,8 @@
 [Bb]uild/
 [Bb]uilds/
 [Ll]ogs/
-[Mm]emoryCaptures/
 UserSettings/
+.plastic/
 .vs/
 .vscode/
 .idea/
