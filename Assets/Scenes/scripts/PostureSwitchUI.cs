@@ -2,72 +2,72 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-/// <summary>
-/// Creates a "сидя" button next to the start button and
-/// switches spawn points to the sitting configuration.
-/// </summary>
 public class PostureSwitchUI : MonoBehaviour
 {
-    [Tooltip("Reference to ScoreManager to clone its Start button")]
+    [Header("Refs")]
     public ScoreManager scoreManager;
-
-    [Tooltip("SpawnPointPlacer used to reposition spawn points")]
     public SpawnPointPlacer spawnPointPlacer;
 
-    [Tooltip("Vertical offset for the sitting button relative to Start button")]
-    public Vector2 sittingButtonOffset = new Vector2(0f, -40f);
+    [Header("Layout")]
+    public Vector2 offsetFromStart = new Vector2(180f, 0f);
+
+    [Header("Behaviour")]
+    public bool requireSelectionBeforeStart = true;
 
     private Button sittingButton;
 
     private void Start()
     {
-        // Create the sitting button if references are assigned
-        if (scoreManager != null && scoreManager.startButton != null)
+        if (scoreManager == null || scoreManager.startButton == null)
         {
-            var startObj = scoreManager.startButton;
-            var parent = startObj.transform.parent;
-
-            // Clone the Start button
-            var clone = Instantiate(startObj, parent);
-            clone.name = "Button_Sit";
-
-            // Adjust position
-            var rt = clone.GetComponent<RectTransform>();
-            var startRt = startObj.GetComponent<RectTransform>();
-            if (rt != null && startRt != null)
-            {
-                rt.anchoredPosition = startRt.anchoredPosition + sittingButtonOffset;
-            }
-
-            // Change displayed text to "сидя"
-            var text = clone.GetComponentInChildren<TMP_Text>();
-            if (text != null)
-                text.text = "сидя";
-
-            // Hook up click event
-            sittingButton = clone.GetComponent<Button>();
-            if (sittingButton != null)
-                sittingButton.onClick.AddListener(SetSittingMode);
+            Debug.LogWarning("[PostureSwitchUI] scoreManager/startButton is not assigned");
+            return;
         }
-        else
+
+        if (requireSelectionBeforeStart)
+            scoreManager.SetShowStartButton(false);
+
+        var startObj = scoreManager.startButton;
+        var parent = startObj.transform.parent;
+        var clone = Instantiate(startObj, parent);
+        clone.name = "Button_Sit";
+
+        var rt = clone.GetComponent<RectTransform>();
+        var startRt = startObj.GetComponent<RectTransform>();
+        if (rt && startRt) rt.anchoredPosition = startRt.anchoredPosition + offsetFromStart;
+
+        var txt = clone.GetComponentInChildren<TMP_Text>();
+        if (txt) txt.text = "Сидя";
+
+        sittingButton = clone.GetComponent<Button>();
+        if (sittingButton)
         {
-            Debug.LogWarning("[PostureSwitchUI] scoreManager or startButton not assigned");
+            sittingButton.onClick.RemoveAllListeners();
+            sittingButton.onClick.AddListener(SetSittingMode);
         }
     }
 
-    /// <summary>
-    /// Switch spawn points to the sitting preset.
-    /// </summary>
     public void SetSittingMode()
     {
-        if (spawnPointPlacer != null)
+        if (!spawnPointPlacer)
         {
-            spawnPointPlacer.posture = SpawnPointPlacer.Posture.Sitting;
-            spawnPointPlacer.PlaceSpawnPoints();
+            Debug.LogWarning("[PostureSwitchUI] spawnPointPlacer is not assigned");
+            return;
         }
-        else
+
+        // переходим в сидячий пресет и раскладываем точки
+        spawnPointPlacer.posture = SpawnPointPlacer.Posture.Sitting;
+        spawnPointPlacer.sittingTwoRows = true;     // опционально: два ряда для сидя
+        spawnPointPlacer.PlaceSpawnPoints();
+
+        if (requireSelectionBeforeStart)
+            scoreManager.SetShowStartButton(true);
+
+        if (sittingButton)
         {
-            Debug.LogWarning("[PostureSwitchUI] spawnPointPlacer not assigned");
+            var t = sittingButton.GetComponentInChildren<TMP_Text>();
+            if (t) t.text = "Сидя ✓";
+            sittingButton.interactable = false;
         }
     }
 }

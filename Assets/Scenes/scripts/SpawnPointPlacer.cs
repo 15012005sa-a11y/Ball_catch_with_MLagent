@@ -1,12 +1,9 @@
-﻿// Assets/Scenes/scripts/SpawnPointPlacer.cs
-// Генератор точек спавна с авто‑привязкой к BallSpawnerBallCatch.
-// Работает в редакторе. В рантайме ничего не делает.
-
-using System;
+﻿// SpawnPointPlacer.cs — Standing: вертикальные колонки (как на скрине)
+// Sitting: прежняя логика (один ряд по Z, X-массив + jitter).
 using System.Linq;
 using UnityEngine;
 #if UNITY_EDITOR
-using UnityEditor;  // только в редакторе
+using UnityEditor;
 #endif
 
 [ExecuteAlways]
@@ -14,21 +11,22 @@ using UnityEditor;  // только в редакторе
 public class SpawnPointPlacer : MonoBehaviour
 {
     [Header("Links")]
-    public Transform playerTransform;                 // центр пациента (torso/chest)
-    public BallSpawnerBallCatch spawner;              // можно оставить пустым — найдём автоматически
+    public Transform playerTransform;
+    public BallSpawnerBallCatch spawner;
 
     public enum Posture { Standing, Sitting }
     public Posture posture = Posture.Standing;
-    public bool twoRows = true;
 
-    [Header("Standing preset")]
-    public float standingBaseY = 1.40f;
-    public float standingYJitter = 0.10f;
-    public float standingRow1Z = 1.6f;
-    public float standingRow2Z = 2.0f;
-    public float[] standingX = { -0.60f, -0.40f, -0.20f, +0.20f, +0.40f, +0.60f };
+    [Header("Standing (columns layout)")]
+    public float standingBaseY = 1.40f;               // высота плеча
+    public float standingZ = 1.60f;                   // все точки на одной дистанции
+    // X-колонки (лево/право). По скрину хороши +/-0.55
+    public float[] standingColumnsX = { -0.55f, +0.55f };
+    // Уровни по высоте относительно baseY (сверху -> вниз)
+    public float[] standingYLevels = { +0.30f, +0.15f, 0f, -0.15f, -0.30f, -0.45f };
 
-    [Header("Sitting preset")]
+    [Header("Sitting (legacy row layout)")]
+    public bool sittingTwoRows = true;
     public float sittingBaseY = 1.15f;
     public float sittingYJitter = 0.10f;
     public float sittingRow1Z = 1.4f;
@@ -38,53 +36,19 @@ public class SpawnPointPlacer : MonoBehaviour
     [Header("Naming")]
     public string pointPrefix = "SpawnPoint";
 
-    // ---------------------- MAIN ACTION ----------------------
     [ContextMenu("Place Spawn Points + Auto-Assign")]
     public void PlaceSpawnPoints()
     {
         if (!playerTransform) playerTransform = transform;
 
-        // выбрать пресет
-        float baseY, jitter, z1, z2; float[] xs;
+        // Очистим/создадим нужное кол-во точек по выбранной позе
+        int total = 0;
         if (posture == Posture.Standing)
-        { baseY = standingBaseY; jitter = standingYJitter; z1 = standingRow1Z; z2 = standingRow2Z; xs = standingX; }
+            total = PlaceStandingColumns();
         else
-        { baseY = sittingBaseY; jitter = sittingYJitter; z1 = sittingRow1Z; z2 = sittingRow2Z; xs = sittingX; }
+            total = PlaceSittingLegacy();
 
-        int rows = twoRows ? 2 : 1;
-        int total = xs.Length * rows;
-
-        // создать/расставить
-        int idx = 0;
-        for (int r = 0; r < rows; r++)
-        {
-            float z = (r == 0 ? z1 : z2);
-            for (int i = 0; i < xs.Length; i++, idx++)
-            {
-                string name = $"{pointPrefix}{idx + 1}";
-                Transform child = transform.Find(name);
-                if (!child)
-                {
-                    var go = new GameObject(name);
-                    child = go.transform;
-                    child.SetParent(transform, false);
-#if UNITY_EDITOR
-                    Undo.RegisterCreatedObjectUndo(go, "Create SpawnPoint");
-#endif
-                }
-
-                float sign = ((i + r) % 2 == 0) ? -1f : +1f;   // «шахматка» по высоте
-                float y = baseY + sign * jitter;
-                child.position = new Vector3(
-                    playerTransform.position.x + xs[i],
-                    y,
-                    playerTransform.position.z + z
-                );
-                child.rotation = Quaternion.identity;
-            }
-        }
-
-        // удалить «лишние» старые точки с этим префиксом
+        // Удалим лишние
         var excess = transform.Cast<Transform>()
             .Where(t => t.name.StartsWith(pointPrefix))
             .OrderBy(t => t.name, System.StringComparer.Ordinal)
@@ -97,16 +61,79 @@ public class SpawnPointPlacer : MonoBehaviour
 #endif
 
         AutoAssignToSpawner();
-        Debug.Log($"[SpawnPointPlacer] Placed {total} points ({posture}, rows={rows}) and auto‑assigned.");
+        Debug.Log($"[SpawnPointPlacer] Placed {total} points ({posture}).");
     }
 
-    // авто‑привязка к BallSpawnerBallCatch
+    int PlaceStandingColumns()
+    {
+        // Генерируем 2 колонки: лево и право; на каждой по 6 высот (сверху-вниз)
+        // Имена: SpawnPoint1..12, порядок: лев.колонка (сверху->вниз), затем прав.колонка (сверху->вниз)
+        int idx = 0;
+        // гарантируем порядок: сначала левая (меньший X), потом правая
+        var cols = standingColumnsX.OrderBy(x => x).ToArray();
+        foreach (var x in cols)
+        {
+            foreach (var yOff in standingYLevels)   // сверху -> вниз
+            {
+                string name = $"{pointPrefix}{++idx}";
+                var child = EnsureChild(name);
+                child.position = new Vector3(
+                    playerTransform.position.x + x,
+                    standingBaseY + yOff,
+                    playerTransform.position.z + standingZ
+                );
+                child.rotation = Quaternion.identity;
+            }
+        }
+        return idx;
+    }
+
+    int PlaceSittingLegacy()
+    {
+        int rows = sittingTwoRows ? 2 : 1;
+        int total = sittingX.Length * rows;
+        int idx = 0;
+        for (int r = 0; r < rows; r++)
+        {
+            float z = (r == 0 ? sittingRow1Z : sittingRow2Z);
+            for (int i = 0; i < sittingX.Length; i++)
+            {
+                string name = $"{pointPrefix}{++idx}";
+                var child = EnsureChild(name);
+                float sign = ((i + r) % 2 == 0) ? -1f : +1f; // лёгкая «шахматка»
+                float y = sittingBaseY + sign * sittingYJitter;
+                child.position = new Vector3(
+                    playerTransform.position.x + sittingX[i],
+                    y,
+                    playerTransform.position.z + z
+                );
+                child.rotation = Quaternion.identity;
+            }
+        }
+        return idx;
+    }
+
+    Transform EnsureChild(string name)
+    {
+        var tr = transform.Find(name);
+        if (!tr)
+        {
+            var go = new GameObject(name);
+            tr = go.transform;
+            tr.SetParent(transform, false);
+#if UNITY_EDITOR
+            Undo.RegisterCreatedObjectUndo(go, "Create SpawnPoint");
+#endif
+        }
+        return tr;
+    }
+
     void AutoAssignToSpawner()
     {
         if (!spawner)
         {
             spawner = GetComponentInParent<BallSpawnerBallCatch>();
-            if (!spawner) spawner = UnityEngine.Object.FindObjectOfType<BallSpawnerBallCatch>();
+            if (!spawner) spawner = Object.FindObjectOfType<BallSpawnerBallCatch>();
         }
         if (!spawner) { Debug.LogWarning("[SpawnPointPlacer] Spawner not found."); return; }
 
@@ -128,13 +155,6 @@ public class SpawnPointPlacer : MonoBehaviour
 #endif
     }
 
-    [ContextMenu("Place (Standing, 12 pts)")]
-    void PlaceStanding() { posture = Posture.Standing; twoRows = true; PlaceSpawnPoints(); }
-
-    [ContextMenu("Place (Sitting, 12 pts)")]
-    void PlaceSitting() { posture = Posture.Sitting; twoRows = true; PlaceSpawnPoints(); }
-
-    // визуализация
     private void OnDrawGizmosSelected()
     {
         if (!playerTransform) return;
