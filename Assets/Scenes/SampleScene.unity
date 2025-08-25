@@ -11337,8 +11337,8 @@ MonoBehaviour:
   blueMaterial: {fileID: 2100000, guid: 963be82a8dbb863408a13c74ed241e59, type: 2}
   redMaterial: {fileID: 2100000, guid: 5b61eb418615c424c9f45933efa0eb06, type: 2}
   redChance: 0.35
-  level1Duration: 20
-  level2Duration: 20
+  level1Duration: 30
+  level2Duration: 30
   graphButton: {fileID: 462736928}
   levelBannerText: {fileID: 296953359}
   bannerSeconds: 3

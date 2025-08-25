@@ -14,8 +14,8 @@ public class LevelDirector : MonoBehaviour
     [Range(0f, 1f)] public float redChance = 0.35f;
 
     [Header("Durations (sec)")]
-    public float level1Duration = 60f;
-    public float level2Duration = 60f;
+    public float level1Duration = 30f;
+    public float level2Duration = 30f;
 
     [Header("UI")]
     public GameObject graphButton;         // опционально
