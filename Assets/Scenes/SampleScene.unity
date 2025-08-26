@@ -7107,7 +7107,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerTransform: {fileID: 2099404004}
   spawner: {fileID: 500489876}
-  posture: 1
+  posture: 0
   standingBaseY: 1.4
   standingZ: 1.6
   standingColumnsX:
@@ -7126,12 +7126,12 @@ MonoBehaviour:
   sittingRow1Z: 1.4
   sittingRow2Z: 1.6
   sittingX:
-  - -0.45
-  - -0.3
-  - -0.15
-  - 0.15
-  - 0.3
-  - 0.45
+  - -0.55
+  - -0.4
+  - -0.7
+  - 0.7
+  - 0.4
+  - 0.55
   pointPrefix: SpawnPoint
 --- !u!1 &773432272
 GameObject:
@@ -11333,6 +11333,7 @@ MonoBehaviour:
   voiceLevel1: {fileID: 8300000, guid: e8a4cfff7366f134da77b61906acba25, type: 3}
   voiceLevel2: {fileID: 8300000, guid: 425ba2f5faa5abb4db0003fea32ecd71, type: 3}
   voiceReady: {fileID: 8300000, guid: e919395ba04587742b59f1eb79aaaeb3, type: 3}
+  voiceGapExtra: 0.1
   levelBannerText: {fileID: 296953359}
   prepDelaySeconds: 3
   readyText: "\u041F\u0440\u0438\u0433\u043E\u0442\u043E\u0432\u044C\u0442\u0435\u0441\u044C..."
@@ -12330,7 +12331,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 3
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 5302535af1044152a457ed104f1f4b91, type: 2}
   m_sharedMaterial: {fileID: 2164040, guid: 5302535af1044152a457ed104f1f4b91, type: 2}
@@ -12743,7 +12744,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: New Text
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 5302535af1044152a457ed104f1f4b91, type: 2}
   m_sharedMaterial: {fileID: 2164040, guid: 5302535af1044152a457ed104f1f4b91, type: 2}
@@ -15588,7 +15589,7 @@ MonoBehaviour:
   scoreManager: {fileID: 1598290630}
   spawnPointPlacer: {fileID: 766516888}
   moveDropdownNearStart: 1
-  offsetFromStart: {x: 500, y: 0}
+  offsetFromStart: {x: 0, y: -40}
   requireSelectionBeforeStart: 1
   rememberChoice: 1
   sessionsToUnlockDropdown: 2
