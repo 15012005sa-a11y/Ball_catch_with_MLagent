@@ -17,8 +17,16 @@ public class LevelDirector : MonoBehaviour
     [Range(0f, 1f)] public float redChance = 0.35f;
 
     [Header("Durations (sec)")]
-    public float level1Duration = 30f;
-    public float level2Duration = 30f;
+    public float level1Duration = 15f;
+    public float level2Duration = 15f;
+
+    [Header("Voice")]
+    public AudioSource voiceSource;       // активный AudioSource под Canvas (Play On Awake = off, Loop = off)
+    public AudioClip voiceLevel1;
+    public AudioClip voiceLevel2;
+    public AudioClip voiceReady;
+    [Tooltip("Доп. пауза между «Приготовьтесь» и «Уровень …»")]
+    public float voiceGapExtra = 0.1f;
 
     // --- ЛЕГАСИ баннер (если countdown не задан) ---
     [Header("UI (legacy banner)")]
@@ -60,6 +68,10 @@ public class LevelDirector : MonoBehaviour
         score.SetShowStartButton(false);
         score.SetShowGraphButton(false);
         score.sessionDuration = level1Duration;
+
+        // Сначала «Приготовьтесь», потом «1 уровень»
+        SpeakReadyThenLevel(voiceLevel1);
+
         StartCoroutine(PrepThen(() => score.StartSession(), level1Banner));
     }
 
@@ -77,7 +89,35 @@ public class LevelDirector : MonoBehaviour
         score.SetShowStartButton(false);
         score.SetShowGraphButton(false);
         score.sessionDuration = level2Duration;
+
+        // Сначала «Приготовьтесь», потом «2 уровень»
+        SpeakReadyThenLevel(voiceLevel2);
+
         StartCoroutine(PrepThen(() => score.StartSessionKeepScore(), level2Banner));
+    }
+
+    // --- Голосовая последовательность ---
+    void SpeakReadyThenLevel(AudioClip levelClip)
+    {
+        // 1) «Приготовьтесь»
+        PlayVoice(voiceReady);
+
+        // 2) Через длину voiceReady + небольшой зазор — «Уровень …»
+        float delay = (voiceReady != null ? voiceReady.length : 0.4f) + voiceGapExtra;
+        PlayVoice(levelClip, delay);
+    }
+
+    void PlayVoice(AudioClip clip, float delay = 0f)
+    {
+        if (voiceSource == null || clip == null) return;
+        if (delay <= 0f) voiceSource.PlayOneShot(clip);
+        else StartCoroutine(PlayDelayed(clip, delay));
+    }
+
+    IEnumerator PlayDelayed(AudioClip c, float d)
+    {
+        yield return new WaitForSeconds(d);
+        if (voiceSource != null && c != null) voiceSource.PlayOneShot(c);
     }
 
     // Универсальная подготовка: overlay ИЛИ legacy баннер

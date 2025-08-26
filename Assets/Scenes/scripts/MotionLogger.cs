@@ -29,6 +29,10 @@ public class MotionLogger : MonoBehaviour
     public List<float> leftArmAngles = new List<float>();
     public List<float> rightArmAngles = new List<float>();
 
+    [Header("Saving")]
+    public bool saveRawCsv = false;            // <-- добавьте переключатель
+    public string filePrefix = "Motion_";
+
     // Суставы, которые мы логируем
     private KinectInterop.JointType[] jointsToTrack = new[]
     {
@@ -60,7 +64,10 @@ public class MotionLogger : MonoBehaviour
     {
         Debug.Log("[MotionLogger] *** StopLogging()");
         _isLogging = false;
-        SaveToCsv(fileName);
+        if (saveRawCsv)                         // <-- сохраняем только при true
+            SaveToCsv(fileName);
+        else
+            _records.Clear();
     }
 
     // Важно: используем LateUpdate, чтобы к этому моменту KinectManager уже заполнил свои данные
