@@ -5,8 +5,11 @@ using System.Collections;
 public class LevelDirector : MonoBehaviour
 {
     [Header("Refs")]
-    public BallSpawnerBallCatch spawner;   // перетащи сюда спавнер
-    public ScoreManager score;             // перетащи ScoreManager (DontDestroyOnLoad)
+    public BallSpawnerBallCatch spawner;
+    public ScoreManager score;
+
+    // Новый красивый отсчёт (опц.)
+    public CountdownOverlay countdown;
 
     [Header("Level 2 visuals")]
     public Material blueMaterial;
@@ -17,72 +20,52 @@ public class LevelDirector : MonoBehaviour
     public float level1Duration = 30f;
     public float level2Duration = 30f;
 
-    [Header("UI")]
-    public GameObject graphButton;         // опционально
-    [Tooltip("TMP_Text, который показывает надпись уровня. ДОЛЖЕН быть за пределами uiPanel ScoreManager.")]
-    public TMP_Text levelBannerText;
-
-    [Tooltip("Сколько секунд держать баннер на экране (без учёта fade)")]
-    public float bannerSeconds = 3f;
-    [Tooltip("Длительность плавного появления/исчезновения")]
-    public float bannerFadeTime = 1f;
+    // --- ЛЕГАСИ баннер (если countdown не задан) ---
+    [Header("UI (legacy banner)")]
+    public TMP_Text levelBannerText;          // баннерный текст (вне uiPanel!)
+    [Tooltip("Сколько секунд подождать перед стартом уровня (отсчёт 3..2..1)")]
+    public float prepDelaySeconds = 3f;
+    [Tooltip("Текст перед отсчётом")]
+    public string readyText = "Приготовьтесь";
+    [Tooltip("Держать баннер N сек до начала отсчёта")]
+    public float bannerHoldSeconds = 0f;
+    public float bannerFadeTime = 0.5f;
 
     [TextArea] public string level1Banner = "1 уровень: разбивай все шарики";
     [TextArea] public string level2Banner = "2 уровень: не разбивай красных!";
 
     private int currentLevel = 0;
-    private Coroutine bannerRoutine;
 
     void Awake()
     {
         if (!spawner) spawner = FindObjectOfType<BallSpawnerBallCatch>();
         if (!score) score = FindObjectOfType<ScoreManager>();
 
-        // гарантируем, что баннер стартует невидимым
         if (levelBannerText)
         {
-            var c = levelBannerText.color;
-            c.a = 0f;
-            levelBannerText.color = c;
+            var c = levelBannerText.color; c.a = 0f; levelBannerText.color = c;
             levelBannerText.gameObject.SetActive(false);
         }
     }
 
-    void OnEnable()
-    {
-        if (score) score.OnSessionFinished.AddListener(OnSessionFinished);
-    }
-    void OnDisable()
-    {
-        if (score) score.OnSessionFinished.RemoveListener(OnSessionFinished);
-    }
+    void OnEnable() { if (score) score.OnSessionFinished.AddListener(OnSessionFinished); }
+    void OnDisable() { if (score) score.OnSessionFinished.RemoveListener(OnSessionFinished); }
 
-    // === ПУСК УРОВНЯ 1 (привяжи эту функцию к Button_StartGame) ===
+    // Привяжи к кнопке "Начать"
     public void StartLevel1()
     {
         currentLevel = 1;
+        if (spawner) spawner.useColors = false;
 
-        if (spawner)
-        {
-            spawner.useColors = false; // без цветных правил на уровне 1
-        }
-
-        if (score)
-        {
-            score.SetShowStartButton(false);
-            score.SetShowGraphButton(false);
-            score.sessionDuration = level1Duration;
-
-            ShowLevelBanner(level1Banner);   // плавный баннер
-            score.StartSession();            // первый запуск обнуляет счёт только один раз
-        }
+        score.SetShowStartButton(false);
+        score.SetShowGraphButton(false);
+        score.sessionDuration = level1Duration;
+        StartCoroutine(PrepThen(() => score.StartSession(), level1Banner));
     }
 
-    // === ПУСК УРОВНЯ 2 ===
-    public void StartLevel2()
+    void StartLevel2()
     {
         currentLevel = 2;
-
         if (spawner)
         {
             spawner.useColors = true;
@@ -91,79 +74,80 @@ public class LevelDirector : MonoBehaviour
             spawner.redMaterial = redMaterial;
         }
 
-        if (score)
-        {
-            score.SetShowStartButton(false);
-            score.SetShowGraphButton(false);
-            score.sessionDuration = level2Duration;
-
-            ShowLevelBanner(level2Banner);   // плавный баннер
-            score.StartSessionKeepScore();   // важно: сохраняем общий счёт
-        }
+        score.SetShowStartButton(false);
+        score.SetShowGraphButton(false);
+        score.sessionDuration = level2Duration;
+        StartCoroutine(PrepThen(() => score.StartSessionKeepScore(), level2Banner));
     }
 
-    // === завершение сессии от ScoreManager ===
+    // Универсальная подготовка: overlay ИЛИ legacy баннер
+    IEnumerator PrepThen(System.Action startAction, string title)
+    {
+        int ticks = Mathf.Max(1, Mathf.CeilToInt(prepDelaySeconds));
+
+        if (countdown != null)
+        {
+            // Красивый отсчёт 3..2..1..GO!
+            yield return countdown.Run($"{title}\n{readyText}", ticks);
+        }
+        else
+        {
+            // Старый баннер с fade и текстом
+            if (levelBannerText)
+            {
+                levelBannerText.gameObject.SetActive(true);
+                yield return StartCoroutine(FadeText(0f, 1f, bannerFadeTime));
+
+                string head = string.IsNullOrEmpty(readyText) ? title : (title + "\n" + readyText);
+                levelBannerText.text = head;
+
+                if (bannerHoldSeconds > 0f)
+                    yield return new WaitForSeconds(bannerHoldSeconds);
+
+                for (int s = ticks; s > 0; s--)
+                {
+                    levelBannerText.text = head + "\n" + s.ToString();
+                    yield return new WaitForSeconds(1f);
+                }
+
+                yield return StartCoroutine(FadeText(1f, 0f, bannerFadeTime));
+                levelBannerText.gameObject.SetActive(false);
+            }
+            else
+            {
+                yield return new WaitForSeconds(prepDelaySeconds);
+            }
+        }
+
+        startAction?.Invoke();
+    }
+
+    private IEnumerator FadeText(float from, float to, float duration)
+    {
+        if (!levelBannerText || duration <= 0f) yield break;
+        Color c = levelBannerText.color; c.a = from; levelBannerText.color = c;
+        float t = 0f;
+        while (t < duration)
+        {
+            t += Time.deltaTime;
+            c.a = Mathf.Lerp(from, to, t / duration);
+            levelBannerText.color = c;
+            yield return null;
+        }
+        c.a = to; levelBannerText.color = c;
+    }
+
     private void OnSessionFinished()
     {
         if (currentLevel == 1)
         {
-            // сразу запускаем 2-й уровень
             StartLevel2();
         }
         else
         {
-            // оба уровня пройдены — вернём кнопки/график
-            if (score)
-            {
-                score.SetShowStartButton(true);
-                score.SetShowGraphButton(true);
-            }
-            Debug.Log("[LevelDirector] Все уровни завершены.");
+            score.SetShowStartButton(true);
+            score.SetShowGraphButton(true);
+            currentLevel = 0;
         }
-    }
-
-    // === Баннер уровня с fade-in / hold / fade-out ===
-    private void ShowLevelBanner(string text)
-    {
-        if (!levelBannerText) return;
-
-        if (bannerRoutine != null) StopCoroutine(bannerRoutine);
-        bannerRoutine = StartCoroutine(BannerRoutine(text, bannerSeconds, bannerFadeTime));
-    }
-
-    private IEnumerator BannerRoutine(string msg, float holdSeconds, float fadeSeconds)
-    {
-        levelBannerText.text = msg;
-        levelBannerText.gameObject.SetActive(true);
-
-        Color c = levelBannerText.color;
-
-        // fade-in
-        float t = 0f;
-        while (t < fadeSeconds)
-        {
-            t += Time.deltaTime;
-            c.a = Mathf.Lerp(0f, 1f, t / fadeSeconds);
-            levelBannerText.color = c;
-            yield return null;
-        }
-        c.a = 1f; levelBannerText.color = c;
-
-        // hold
-        yield return new WaitForSeconds(holdSeconds);
-
-        // fade-out
-        t = 0f;
-        while (t < fadeSeconds)
-        {
-            t += Time.deltaTime;
-            c.a = Mathf.Lerp(1f, 0f, t / fadeSeconds);
-            levelBannerText.color = c;
-            yield return null;
-        }
-        c.a = 0f; levelBannerText.color = c;
-
-        levelBannerText.gameObject.SetActive(false);
-        bannerRoutine = null;
     }
 }
