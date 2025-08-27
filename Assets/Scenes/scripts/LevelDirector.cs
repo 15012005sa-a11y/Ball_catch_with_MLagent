@@ -7,9 +7,13 @@ public class LevelDirector : MonoBehaviour
     [Header("Refs")]
     public BallSpawnerBallCatch spawner;
     public ScoreManager score;
-
-    // Новый красивый отсчёт (опц.)
     public CountdownOverlay countdown;
+
+    [Header("Kinect control")]
+    [Tooltip("Перетащите сюда объект с Kinect (например, KinectController или KinectManager)")]
+    public GameObject kinectController;
+    public bool stopKinectOnGameEnd = true;
+    public bool stopBetweenLevels = false;   // если хотите выключать между уровнями
 
     [Header("Level 2 visuals")]
     public Material blueMaterial;
@@ -17,25 +21,20 @@ public class LevelDirector : MonoBehaviour
     [Range(0f, 1f)] public float redChance = 0.35f;
 
     [Header("Durations (sec)")]
-    public float level1Duration = 15f;
-    public float level2Duration = 15f;
+    public float level1Duration = 20f;
+    public float level2Duration = 20f;
 
     [Header("Voice")]
-    public AudioSource voiceSource;       // активный AudioSource под Canvas (Play On Awake = off, Loop = off)
+    public AudioSource voiceSource;
     public AudioClip voiceLevel1;
     public AudioClip voiceLevel2;
     public AudioClip voiceReady;
-    [Tooltip("Доп. пауза между «Приготовьтесь» и «Уровень …»")]
     public float voiceGapExtra = 0.1f;
 
-    // --- ЛЕГАСИ баннер (если countdown не задан) ---
     [Header("UI (legacy banner)")]
-    public TMP_Text levelBannerText;          // баннерный текст (вне uiPanel!)
-    [Tooltip("Сколько секунд подождать перед стартом уровня (отсчёт 3..2..1)")]
+    public TMP_Text levelBannerText;
     public float prepDelaySeconds = 3f;
-    [Tooltip("Текст перед отсчётом")]
     public string readyText = "Приготовьтесь";
-    [Tooltip("Держать баннер N сек до начала отсчёта")]
     public float bannerHoldSeconds = 0f;
     public float bannerFadeTime = 0.5f;
 
@@ -59,9 +58,33 @@ public class LevelDirector : MonoBehaviour
     void OnEnable() { if (score) score.OnSessionFinished.AddListener(OnSessionFinished); }
     void OnDisable() { if (score) score.OnSessionFinished.RemoveListener(OnSessionFinished); }
 
-    // Привяжи к кнопке "Начать"
+    // === Управление Kinect ===
+    void StartKinectTracking()
+    {
+        // Вариант 1: просто активируем/деактивируем объект
+        if (kinectController && !kinectController.activeSelf)
+            kinectController.SetActive(true);
+
+        // Вариант 2 (если используете пакет RFilkov): попробовать запустить сенсор
+        var km = FindObjectOfType<KinectManager>();   // если класса нет — просто ничего не происходит
+        if (km != null)
+        {
+            try { km.StartKinect(); } catch { /* метод может отсутствовать – это нормально */ }
+        }
+    }
+
+    void StopKinectTracking()
+    {
+        // Вариант 1: выключаем объект с Kinect
+        var km = FindObjectOfType<KinectManager>();
+        if (km != null) { try { km.StopKinect(); } catch { } }
+    }
+
+    // === ПУСК УРОВНЯ 1 ===
     public void StartLevel1()
     {
+        StartKinectTracking();    // убедимся, что трекинг включён
+
         currentLevel = 1;
         if (spawner) spawner.useColors = false;
 
@@ -69,14 +92,17 @@ public class LevelDirector : MonoBehaviour
         score.SetShowGraphButton(false);
         score.sessionDuration = level1Duration;
 
-        // Сначала «Приготовьтесь», потом «1 уровень»
         SpeakReadyThenLevel(voiceLevel1);
 
         StartCoroutine(PrepThen(() => score.StartSession(), level1Banner));
     }
 
+    // === ПУСК УРОВНЯ 2 ===
     void StartLevel2()
     {
+        if (stopBetweenLevels) StopKinectTracking();   // по желанию — выключить между уровнями
+        StartKinectTracking();                         // и снова включить перед вторым уровнем
+
         currentLevel = 2;
         if (spawner)
         {
@@ -90,19 +116,15 @@ public class LevelDirector : MonoBehaviour
         score.SetShowGraphButton(false);
         score.sessionDuration = level2Duration;
 
-        // Сначала «Приготовьтесь», потом «2 уровень»
         SpeakReadyThenLevel(voiceLevel2);
 
         StartCoroutine(PrepThen(() => score.StartSessionKeepScore(), level2Banner));
     }
 
-    // --- Голосовая последовательность ---
+    // === Голос: сначала «Приготовьтесь», потом «Уровень …» ===
     void SpeakReadyThenLevel(AudioClip levelClip)
     {
-        // 1) «Приготовьтесь»
         PlayVoice(voiceReady);
-
-        // 2) Через длину voiceReady + небольшой зазор — «Уровень …»
         float delay = (voiceReady != null ? voiceReady.length : 0.4f) + voiceGapExtra;
         PlayVoice(levelClip, delay);
     }
@@ -120,19 +142,17 @@ public class LevelDirector : MonoBehaviour
         if (voiceSource != null && c != null) voiceSource.PlayOneShot(c);
     }
 
-    // Универсальная подготовка: overlay ИЛИ legacy баннер
+    // === Подготовка и запуск уровня ===
     IEnumerator PrepThen(System.Action startAction, string title)
     {
         int ticks = Mathf.Max(1, Mathf.CeilToInt(prepDelaySeconds));
 
         if (countdown != null)
         {
-            // Красивый отсчёт 3..2..1..GO!
             yield return countdown.Run($"{title}\n{readyText}", ticks);
         }
         else
         {
-            // Старый баннер с fade и текстом
             if (levelBannerText)
             {
                 levelBannerText.gameObject.SetActive(true);
@@ -177,6 +197,7 @@ public class LevelDirector : MonoBehaviour
         c.a = to; levelBannerText.color = c;
     }
 
+    // === Завершение сессии ===
     private void OnSessionFinished()
     {
         if (currentLevel == 1)
@@ -188,6 +209,9 @@ public class LevelDirector : MonoBehaviour
             score.SetShowStartButton(true);
             score.SetShowGraphButton(true);
             currentLevel = 0;
+
+            if (stopKinectOnGameEnd)
+                StopKinectTracking();   // <- здесь гасим Kinect сразу после игры
         }
     }
 }
