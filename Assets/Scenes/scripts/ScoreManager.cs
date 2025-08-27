@@ -10,7 +10,11 @@ public class ScoreManager : MonoBehaviour
 {
     public UnityEvent OnSessionFinished;
     public static ScoreManager Instance { get; private set; }
-    public event Action OnBallCaught;
+
+    public event System.Action OnBallCaught;   // оставьте как было
+    public event System.Action OnGoodCatch;    // только правильный шар
+    public event System.Action OnRedTouched;   // красный шар (ошибка)
+    public event System.Action OnMissed;     // НОВОЕ: промах синим шаром
 
     [Header("Exporter")]
     public ExcelExporter exporter;
@@ -129,6 +133,12 @@ public class ScoreManager : MonoBehaviour
         StartSessionInternal(resetScore: false);
     }
 
+    public void RegisterMiss()
+    {
+        // здесь можно вести статистику промахов, если нужно
+        OnMissed?.Invoke();
+    }
+
     private void StartSessionInternal(bool resetScore)
     {
         uiPanel?.SetActive(false);
@@ -165,16 +175,16 @@ public class ScoreManager : MonoBehaviour
         if (!sessionRunning) return;
 
         currentScore += points;
-
-        if (clampScoreToZero && currentScore < 0)
-            currentScore = 0;
+        if (clampScoreToZero && currentScore < 0) currentScore = 0;
 
         UpdateUI();
-        OnBallCaught?.Invoke();
 
-        if (popSound != null)
-            audioSource.PlayOneShot(popSound);
+        OnBallCaught?.Invoke();   // для совместимости со старым кодом
+        OnGoodCatch?.Invoke();    // НОВОЕ: только «правильная ловля»
+
+        if (popSound != null) audioSource.PlayOneShot(popSound);
     }
+
 
     /// <summary>
     /// НОВОЕ: вызвать при касании КРАСНОГО шара — уменьшает счёт на redPenalty.
@@ -184,14 +194,14 @@ public class ScoreManager : MonoBehaviour
         if (!sessionRunning) return;
 
         currentScore -= Mathf.Abs(redPenalty);
-
-        if (clampScoreToZero && currentScore < 0)
-            currentScore = 0;
+        if (clampScoreToZero && currentScore < 0) currentScore = 0;
 
         UpdateUI();
-        OnBallCaught?.Invoke();           // если красный шар тоже «лопается»
-        if (popSound != null)
-            audioSource.PlayOneShot(popSound);
+
+        // БЫЛО: OnBallCaught?.Invoke();  // убрать, чтобы красные не считались «ловлей»
+        OnRedTouched?.Invoke();            // НОВОЕ: отдельный сигнал ошибки
+
+        if (popSound != null) audioSource.PlayOneShot(popSound);
     }
 
     /// <summary>Запоминает время спавна шара с данным ID.</summary>

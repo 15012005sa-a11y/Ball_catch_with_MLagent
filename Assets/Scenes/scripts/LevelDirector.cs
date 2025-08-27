@@ -9,6 +9,15 @@ public class LevelDirector : MonoBehaviour
     public ScoreManager score;
     public CountdownOverlay countdown;
 
+    [Header("Rest (между уровнями)")]
+    public float restBetweenLevelsSeconds = 10f;
+    [Tooltip("TMP_Text крупным шрифтом поверх экрана")]
+    public TMP_Text restText;
+    [Tooltip("CanvasGroup того же объекта (для плавного появления/скрытия) — опционально")]
+    public CanvasGroup restGroup;
+    public float restFadeTime = 0.25f;
+
+
     [Header("Kinect control")]
     [Tooltip("Перетащите сюда объект с Kinect (например, KinectController или KinectManager)")]
     public GameObject kinectController;
@@ -21,8 +30,8 @@ public class LevelDirector : MonoBehaviour
     [Range(0f, 1f)] public float redChance = 0.35f;
 
     [Header("Durations (sec)")]
-    public float level1Duration = 20f;
-    public float level2Duration = 20f;
+    public float level1Duration = 15f;
+    public float level2Duration = 15f;
 
     [Header("Voice")]
     public AudioSource voiceSource;
@@ -202,16 +211,65 @@ public class LevelDirector : MonoBehaviour
     {
         if (currentLevel == 1)
         {
-            StartLevel2();
+            // Пауза перед запуском 2-го уровня
+            StartCoroutine(WaitAndStartLevel2());
         }
         else
         {
+            // Все уровни завершены
             score.SetShowStartButton(true);
             score.SetShowGraphButton(true);
             currentLevel = 0;
 
             if (stopKinectOnGameEnd)
-                StopKinectTracking();   // <- здесь гасим Kinect сразу после игры
+                StopKinectTracking();   // гасим Kinect после игры
         }
     }
+
+    private IEnumerator WaitAndStartLevel2()
+    {
+        int ticks = Mathf.Max(1, Mathf.CeilToInt(restBetweenLevelsSeconds));
+
+        if (restText != null)
+        {
+            // Показать
+            if (restGroup) yield return StartCoroutine(FadeGroup(restGroup, 0f, 1f, restFadeTime));
+            restText.gameObject.SetActive(true);
+
+            for (int s = ticks; s > 0; s--)
+            {
+                restText.text = $"Отдых... {s} сек";
+                yield return new WaitForSeconds(1f);
+            }
+
+            // Скрыть
+            if (restGroup) yield return StartCoroutine(FadeGroup(restGroup, 1f, 0f, restFadeTime));
+            restText.gameObject.SetActive(false);
+        }
+        else
+        {
+            // Если текст не назначен — просто ждём
+            yield return new WaitForSeconds(restBetweenLevelsSeconds);
+        }
+
+        StartLevel2();
+    }
+
+    private IEnumerator FadeGroup(CanvasGroup g, float from, float to, float dur)
+    {
+        if (!g) yield break;
+        g.gameObject.SetActive(true);
+        g.alpha = from;
+        float t = 0f;
+        while (t < dur)
+        {
+            t += Time.deltaTime;
+            g.alpha = Mathf.Lerp(from, to, t / dur);
+            yield return null;
+        }
+        g.alpha = to;
+        if (to <= 0f) g.gameObject.SetActive(false);
+    }
+
+
 }

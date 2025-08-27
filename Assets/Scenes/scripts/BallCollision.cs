@@ -22,6 +22,12 @@ public class BallCollision : MonoBehaviour
     [Tooltip("Слой(и) коллайдеров руки. Оставь пустым — будет работать по имени.")]
     public LayerMask handLayers;
 
+    [Header("Miss detection (опционально)")]
+    [Tooltip("Если есть триггер-ловушка сзади, укажите её тег. Иначе оставьте пустым.")]
+    public string missZoneTag = "MissZone";
+
+    // Пометка: судьба шара уже «обработана» (пойман/красный/промах)
+    // Используем существующее поле как флаг обработки.
     private bool _scored = false;
 
     private bool IsPlayerHand(Collider other)
@@ -37,7 +43,7 @@ public class BallCollision : MonoBehaviour
         if (n.Contains("hand") || n.Contains("palm") || n.Contains("wrist"))
             return true;
 
-        // 3) Разрешим ещё общий случай с тегом Player (стандартный тег существует)
+        // 3) Разрешим ещё общий случай с тегом Player
         if (other.CompareTag("Player"))
             return true;
 
@@ -49,7 +55,7 @@ public class BallCollision : MonoBehaviour
         if (_scored) return;
         if (!IsPlayerHand(other)) return;
 
-        _scored = true;
+        _scored = true; // дальше шар уже «обработан»
 
         var sm = ScoreManager.Instance;
         if (sm != null)
@@ -62,9 +68,9 @@ public class BallCollision : MonoBehaviour
             if (sm.spawnTimes != null && sm.spawnTimes.TryGetValue(BallId, out float tSpawn))
                 sm.RecordReactionTime(Time.time - tSpawn);
 
-            // Счёт
-            if (isRed) sm.RedBallTouched();   // штраф
-            else sm.AddScore(1);        // +1
+            // Счёт / штраф
+            if (isRed) sm.RedBallTouched();   // внутри вызывается OnRedTouched
+            else sm.AddScore(1);        // внутри вызывается OnGoodCatch
         }
 
         // FX: вспышка при лопании
@@ -76,5 +82,33 @@ public class BallCollision : MonoBehaviour
 
         if (destroyOnCatch)
             Destroy(gameObject, destroyDelay);
+    }
+
+    // ======== УЧЁТ ПРОМАХА ========
+    // Вариант A: есть триггер-ловушка за пациентом (укажите её тег в missZoneTag)
+    private void OnTriggerExit(Collider other)
+    {
+        if (!string.IsNullOrEmpty(missZoneTag) && other.CompareTag(missZoneTag))
+            ReportMissIfNotHandled();
+    }
+
+    // Вариант B: объект ушёл с экрана
+    private void OnBecameInvisible()
+    {
+        ReportMissIfNotHandled();
+    }
+
+    // Safety net: если шар уничтожили кодом (например, в спавнере при уходе за Z)
+    private void OnDestroy()
+    {
+        ReportMissIfNotHandled();
+    }
+
+    private void ReportMissIfNotHandled()
+    {
+        if (_scored) return;      // уже пойман/штрафан — промаха нет
+        _scored = true;           // помечаем, чтобы не задублировать
+
+        ScoreManager.Instance?.RegisterMiss();  // событие промаха
     }
 }

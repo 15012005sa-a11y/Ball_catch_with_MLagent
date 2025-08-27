@@ -44,14 +44,16 @@ public class BallSpawnerBallCatch : MonoBehaviour
     private void Start()
     {
         if (ScoreManager.Instance != null)
-            ScoreManager.Instance.OnBallCaught += HandleBallCaught;
+            ScoreManager.Instance.OnGoodCatch += HandleBallCaught; // было OnBallCaught
     }
 
     private void OnDestroy()
     {
         if (ScoreManager.Instance != null)
-            ScoreManager.Instance.OnBallCaught -= HandleBallCaught;
+            ScoreManager.Instance.OnGoodCatch -= HandleBallCaught; // было OnBallCaught
     }
+
+
 
     /// <summary>Запуск повторяющегося спавна.</summary>
     public void StartSpawning()
