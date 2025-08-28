@@ -11621,8 +11621,8 @@ MonoBehaviour:
   blueMaterial: {fileID: 2100000, guid: 963be82a8dbb863408a13c74ed241e59, type: 2}
   redMaterial: {fileID: 2100000, guid: 5b61eb418615c424c9f45933efa0eb06, type: 2}
   redChance: 0.35
-  level1Duration: 16
-  level2Duration: 16
+  level1Duration: 60
+  level2Duration: 40
   voiceSource: {fileID: 2034391474}
   voiceLevel1: {fileID: 8300000, guid: e8a4cfff7366f134da77b61906acba25, type: 3}
   voiceLevel2: {fileID: 8300000, guid: 425ba2f5faa5abb4db0003fea32ecd71, type: 3}
