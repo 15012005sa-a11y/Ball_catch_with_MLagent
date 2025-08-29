@@ -1192,6 +1192,9 @@ RectTransform:
   - {fileID: 137766445}
   - {fileID: 174573621}
   - {fileID: 1508553342}
+<<<<<<< HEAD
+>>>>>>> parent of d33e8baf (scene)
+=======
 >>>>>>> parent of d33e8baf (scene)
   m_Father: {fileID: 49557984}
   m_RootOrder: 0
@@ -2647,7 +2650,11 @@ PrefabInstance:
     - target: {fileID: 3754175281166492276, guid: 1f72f807ef5a3154886e70c888c28c93, type: 3}
       propertyPath: m_RootOrder
 <<<<<<< HEAD
+<<<<<<< HEAD
       value: 2
+=======
+      value: 1
+>>>>>>> parent of d33e8baf (scene)
 =======
       value: 1
 >>>>>>> parent of d33e8baf (scene)
@@ -2667,10 +2674,13 @@ PrefabInstance:
     - target: {fileID: 3754175281166492276, guid: 1f72f807ef5a3154886e70c888c28c93, type: 3}
       propertyPath: m_AnchorMin.y
       value: 0.5
+<<<<<<< HEAD
       objectReference: {fileID: 0}
     - target: {fileID: 3754175281166492276, guid: 1f72f807ef5a3154886e70c888c28c93, type: 3}
       propertyPath: m_SizeDelta.x
       value: 0
+=======
+>>>>>>> parent of d33e8baf (scene)
       objectReference: {fileID: 0}
     - target: {fileID: 3754175281166492276, guid: 1f72f807ef5a3154886e70c888c28c93, type: 3}
       propertyPath: m_SizeDelta.y
@@ -2729,6 +2739,7 @@ PrefabInstance:
       value: BtnNewSession
       objectReference: {fileID: 0}
 <<<<<<< HEAD
+<<<<<<< HEAD
     - target: {fileID: 4613048438256048418, guid: 1f72f807ef5a3154886e70c888c28c93, type: 3}
       propertyPath: m_IsActive
       value: 1
@@ -2769,6 +2780,8 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: -60
       objectReference: {fileID: 0}
+=======
+>>>>>>> parent of d33e8baf (scene)
 =======
 >>>>>>> parent of d33e8baf (scene)
     m_RemovedComponents: []
