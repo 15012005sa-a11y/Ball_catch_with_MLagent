@@ -16,6 +16,8 @@ public class ScoreManager : MonoBehaviour
     public event System.Action OnRedTouched;   // красный шар (ошибка)
     public event System.Action OnMissed;     // НОВОЕ: промах синим шаром
 
+    public bool stopKinectOnGameEnd = false;
+
     [Header("Exporter")]
     public ExcelExporter exporter;
 
