@@ -257,7 +257,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 421335445}
-  m_RootOrder: 1
+  m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
@@ -705,6 +705,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 49557984}
+  - {fileID: 2841836765418438630}
   - {fileID: 154021292}
   m_Father: {fileID: 0}
   m_RootOrder: 3
@@ -1172,6 +1173,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
 <<<<<<< HEAD
+<<<<<<< HEAD
   - {fileID: 1477409540}
   - {fileID: 1253324452}
   - {fileID: 2057124794}
@@ -1185,6 +1187,12 @@ RectTransform:
     - {fileID: 2841836765418438630}
     - {fileID: 2100000001}
 >>>>>>> 4f8269acd0aecc056e959b6e52447bf307d5c443
+=======
+  - {fileID: 1552328407}
+  - {fileID: 137766445}
+  - {fileID: 174573621}
+  - {fileID: 1508553342}
+>>>>>>> parent of d33e8baf (scene)
   m_Father: {fileID: 49557984}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -2626,7 +2634,7 @@ PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Modification:
-    m_TransformParent: {fileID: 1242730876}
+    m_TransformParent: {fileID: 421335445}
     m_Modifications:
     - target: {fileID: 3754175281166492276, guid: 1f72f807ef5a3154886e70c888c28c93, type: 3}
       propertyPath: m_Pivot.x
@@ -2638,23 +2646,27 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3754175281166492276, guid: 1f72f807ef5a3154886e70c888c28c93, type: 3}
       propertyPath: m_RootOrder
+<<<<<<< HEAD
       value: 2
+=======
+      value: 1
+>>>>>>> parent of d33e8baf (scene)
       objectReference: {fileID: 0}
     - target: {fileID: 3754175281166492276, guid: 1f72f807ef5a3154886e70c888c28c93, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 0
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 3754175281166492276, guid: 1f72f807ef5a3154886e70c888c28c93, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 3754175281166492276, guid: 1f72f807ef5a3154886e70c888c28c93, type: 3}
       propertyPath: m_AnchorMin.x
-      value: 0
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 3754175281166492276, guid: 1f72f807ef5a3154886e70c888c28c93, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 0
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 3754175281166492276, guid: 1f72f807ef5a3154886e70c888c28c93, type: 3}
       propertyPath: m_SizeDelta.x
@@ -2716,6 +2728,7 @@ PrefabInstance:
       propertyPath: m_Name
       value: BtnNewSession
       objectReference: {fileID: 0}
+<<<<<<< HEAD
     - target: {fileID: 4613048438256048418, guid: 1f72f807ef5a3154886e70c888c28c93, type: 3}
       propertyPath: m_IsActive
       value: 1
@@ -2756,6 +2769,8 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: -60
       objectReference: {fileID: 0}
+=======
+>>>>>>> parent of d33e8baf (scene)
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 1f72f807ef5a3154886e70c888c28c93, type: 3}
 --- !u!224 &2057124794 stripped
