@@ -43,39 +43,79 @@ public class AppShellBootstrapper : MonoBehaviour
             BuildUI();
     }
 
+
+    // ----- Жизненный цикл (рядом со Start/Update) -----
     void OnEnable()
     {
 #if UNITY_EDITOR
-        if (!Application.isPlaying && previewInEditMode)
-            RebuildEditorPreview();
+    // Не строим превью, если запускается Play или идёт смена режима
+    if (!Application.isPlaying && !EditorApplication.isPlayingOrWillChangePlaymode && previewInEditMode)
+        RebuildEditorPreview();
 #endif
     }
 
 #if UNITY_EDITOR
-    [ContextMenu("Rebuild UI (Editor)")]
-    public void RebuildEditorPreview()
-    {
+void OnDisable()
+{
+    // Чистим только в режиме редактора, чтобы не конфликтовать с PlayMode revert
+    if (!Application.isPlaying)
         ClearBuiltUI();
-        BuildUI();
-        EditorApplication.QueuePlayerLoopUpdate();
-        SceneView.RepaintAll();
-    }
+}
 #endif
 
+    // ----- Хелперы (ниже, в конце файла тоже ок) -----
     void ClearBuiltUI()
     {
+#if UNITY_EDITOR
+    // Сброс выделения, чтобы инспектор не держал уничтожаемые объекты
+    Selection.activeObject = null;
+#endif
+
+        // Удаляем только наш Canvas превью
         var ex = transform.Find("AppShell_Canvas");
         if (ex != null)
         {
 #if UNITY_EDITOR
-            DestroyImmediate(ex.gameObject);
+        DestroyImmediate(ex.gameObject);
 #else
             Destroy(ex.gameObject);
 #endif
         }
-        var ev = GameObject.FindObjectOfType<UnityEngine.EventSystems.EventSystem>();
-        if (ev != null && !Application.isPlaying)
-            DestroyImmediate(ev.gameObject);
+
+        // И только наш локальный EventSystem превью
+        var es = transform.Find("AppShell_EventSystem");
+        if (es != null)
+        {
+#if UNITY_EDITOR
+        DestroyImmediate(es.gameObject);
+#else
+            Destroy(es.gameObject);
+#endif
+        }
+    }
+
+#if UNITY_EDITOR
+[ContextMenu("Rebuild UI (Editor)")]
+public void RebuildEditorPreview()
+{
+    ClearBuiltUI();
+    BuildUI();
+    EditorApplication.QueuePlayerLoopUpdate();
+    SceneView.RepaintAll();
+}
+#endif
+
+
+    void EnsureLocalEventSystem(Transform parent)
+    {
+        var es = transform.Find("AppShell_EventSystem");
+        if (es == null)
+        {
+            var go = new GameObject("AppShell_EventSystem");
+            go.transform.SetParent(parent, false);
+            go.AddComponent<UnityEngine.EventSystems.EventSystem>();
+            go.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>(); // <— с <>
+        }
     }
 
     // ================== UI BUILD ==================
@@ -84,6 +124,8 @@ public class AppShellBootstrapper : MonoBehaviour
         var canvas = UIPrimitives.EnsureCanvas();
         canvas.gameObject.name = "AppShell_Canvas";
         canvas.transform.SetParent(this.transform, false);
+        EnsureLocalEventSystem(canvas.transform);
+
 
         var root = UIPrimitives.FullscreenPanel(canvas.transform, "Root", UIPrimitives.BgMain);
 
@@ -162,8 +204,9 @@ public class AppShellBootstrapper : MonoBehaviour
     RectTransform CreateNewSessionView(Transform parent)
     {
         var view = UIPrimitives.Panel(parent, "NewSessionView", new Color32(0, 0, 0, 0));
-        UIPrimitives.Stretch((RectTransform)view);
+        UIPrimitives.Stretch(view);
 
+        // Карточка протокола
         var card = UIPrimitives.Panel(view, "ProtocolCard", UIPrimitives.BgPanel);
         var cRT = (RectTransform)card;
         cRT.anchorMin = new Vector2(0, 1);
@@ -178,16 +221,49 @@ public class AppShellBootstrapper : MonoBehaviour
 
         UIPrimitives.Label(card, "Protocol", 24, true, UIPrimitives.Text);
 
-        // --- Select patient ---
+        // --- Select patient (dropdown) ---
         UIPrimitives.Label(card, "Select patient", 18, true, UIPrimitives.Text);
+
+        // контейнер строки
         var rowSel = UIPrimitives.Panel(card, "RowSelectPatient", new Color32(0, 0, 0, 0));
         var hs = rowSel.gameObject.AddComponent<HorizontalLayoutGroup>();
-        hs.spacing = 8; hs.childAlignment = TextAnchor.MiddleLeft;
-        hs.childForceExpandWidth = false; hs.childForceExpandHeight = false;
-        var leRow = rowSel.gameObject.AddComponent<LayoutElement>(); leRow.preferredHeight = 44;
+        hs.spacing = 8;
+        hs.childAlignment = TextAnchor.MiddleLeft;
+        hs.childForceExpandWidth = false;
+        hs.childForceExpandHeight = false;
+        rowSel.gameObject.AddComponent<LayoutElement>().preferredHeight = 44;
 
-        BuildPatientChoiceButtons(rowSel);   // до 5 кнопок
-        selectedPatientText = UIPrimitives.Label(card, "Selected: none", 16, false, UIPrimitives.TextMuted);
+        // подпись слева
+        UIPrimitives.Label(rowSel, "Patient", 18, false, UIPrimitives.Text);
+
+        // данные
+        var patients = SimplePatientStore.GetAll();
+        var options = patients.Select(p => $"{p.Id}. {p.Name}").ToList();
+
+        // сам dropdown
+        var (dd, _) = UIPrimitives.Dropdown(rowSel, options, 0, new Vector2(420, 44));
+
+        // подпись выбранного
+        selectedPatientText = UIPrimitives.Label(
+            card,
+            options.Count > 0 ? $"Selected: {options[0]}" : "Selected: none",
+            16, false, UIPrimitives.TextMuted
+        );
+
+        // инициализация
+        if (patients.Count > 0)
+            selectedPatientId = patients[Mathf.Clamp(dd.value, 0, patients.Count - 1)].Id;
+
+        // обработчик выбора
+        dd.onValueChanged.AddListener(i =>
+        {
+            if (i >= 0 && i < patients.Count)
+            {
+                selectedPatientId = patients[i].Id;
+                if (selectedPatientText != null)
+                    selectedPatientText.text = $"Selected: {patients[i].Id}. {patients[i].Name}";
+            }
+        });
 
         // --- Protocol fields ---
         MakeRow(card, "Level 1 Duration", out fL1, defaultVal: "60");
@@ -203,12 +279,14 @@ public class AppShellBootstrapper : MonoBehaviour
 
         // Footer
         var footer = UIPrimitives.Panel(card, "Footer", new Color32(0, 0, 0, 0));
-        var fRT = (RectTransform)footer; fRT.sizeDelta = new Vector2(0, 70);
+        var fRT = (RectTransform)footer;
+        fRT.sizeDelta = new Vector2(0, 70);
         var h = footer.gameObject.AddComponent<HorizontalLayoutGroup>();
-        h.childAlignment = TextAnchor.MiddleRight; h.padding = new RectOffset(0, 0, 8, 8);
+        h.childAlignment = TextAnchor.MiddleRight;
+        h.padding = new RectOffset(0, 0, 8, 8);
         UIPrimitives.Button(footer, "Start", 22, StartGame);
 
-        return (RectTransform)view;
+        return view;
     }
 
     RectTransform CreatePatientsView(Transform parent)
