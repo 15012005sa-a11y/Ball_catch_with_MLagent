@@ -4,6 +4,8 @@ using TMPro;
 using UnityEngine.SceneManagement;
 using System.Linq;
 using System.Collections.Generic;
+using System.Globalization;   
+
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -105,18 +107,76 @@ public void RebuildEditorPreview()
 }
 #endif
 
+    TMP_Dropdown ddPatient;
+    Button btnStart;
+
+    void SetProtocolInteractable(bool on)
+    {
+        if (fL1) fL1.interactable = on;
+        if (fL2) fL2.interactable = on;
+        if (fRest) fRest.interactable = on;
+        if (fRedChance) fRedChance.interactable = on;
+        if (tStopKinect) tStopKinect.interactable = on;
+        if (tStopBetween) tStopBetween.interactable = on;
+        if (btnStart) btnStart.interactable = on;
+    }
+
+    void ApplySettingsToUI(PatientSettings s)
+    {
+        // Учитываем суффиксы " s" в NumericField
+        fL1.text = s.Level1Duration.ToString("0.#", CultureInfo.InvariantCulture) + " s";
+        fL2.text = s.Level2Duration.ToString("0.#", CultureInfo.InvariantCulture) + " s";
+        fRest.text = s.RestSeconds.ToString("0.#", CultureInfo.InvariantCulture) + " s";
+        fRedChance.text = s.RedChance.ToString("0.##", CultureInfo.InvariantCulture);
+
+        if (tStopKinect) tStopKinect.isOn = s.StopKinectOnGameEnd;
+        if (tStopBetween) tStopBetween.isOn = s.StopBetweenLevels;
+    }
+
+    PatientSettings ReadSettingsFromUI()
+    {
+        return new PatientSettings
+        {
+            Level1Duration = UIPrimitives.ParseOrDefault(fL1, 60f),
+            Level2Duration = UIPrimitives.ParseOrDefault(fL2, 40f),
+            RestSeconds = UIPrimitives.ParseOrDefault(fRest, 10f),
+            RedChance = UIPrimitives.ParseOrDefault(fRedChance, 0.35f),
+            StopKinectOnGameEnd = tStopKinect && tStopKinect.isOn,
+            StopBetweenLevels = tStopBetween && tStopBetween.isOn
+        };
+    }
+
+    void OnPatientSelected(int idx, System.Collections.Generic.List<(int id, string name)> map)
+    {
+        if (idx < 0 || idx >= map.Count)
+        {
+            selectedPatientId = -1;
+            selectedPatientText.text = "Selected: none";
+            SetProtocolInteractable(false);
+            return;
+        }
+
+        selectedPatientId = map[idx].id;
+        selectedPatientText.text = $"Selected: {map[idx].id}. {map[idx].name}";
+        var s = PatientSettingsDB.Load(selectedPatientId);
+        ApplySettingsToUI(s);
+        SetProtocolInteractable(true);
+    }
+
 
     void EnsureLocalEventSystem(Transform parent)
     {
-        var es = transform.Find("AppShell_EventSystem");
-        if (es == null)
-        {
-            var go = new GameObject("AppShell_EventSystem");
-            go.transform.SetParent(parent, false);
-            go.AddComponent<UnityEngine.EventSystems.EventSystem>();
-            go.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>(); // <— с <>
-        }
+        // если какой-то EventSystem уже есть в сцене — ничего не делаем
+        if (UnityEngine.Object.FindObjectOfType<UnityEngine.EventSystems.EventSystem>() != null)
+            return;
+
+        // создаём ровно один локально под нашим Canvas
+        var go = new GameObject("AppShell_EventSystem");
+        go.transform.SetParent(parent, false);
+        go.AddComponent<UnityEngine.EventSystems.EventSystem>();
+        go.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
     }
+
 
     // ================== UI BUILD ==================
     void BuildUI()
@@ -227,43 +287,40 @@ public void RebuildEditorPreview()
         // контейнер строки
         var rowSel = UIPrimitives.Panel(card, "RowSelectPatient", new Color32(0, 0, 0, 0));
         var hs = rowSel.gameObject.AddComponent<HorizontalLayoutGroup>();
-        hs.spacing = 8;
-        hs.childAlignment = TextAnchor.MiddleLeft;
-        hs.childForceExpandWidth = false;
-        hs.childForceExpandHeight = false;
+        hs.spacing = 8; hs.childAlignment = TextAnchor.MiddleLeft;
+        hs.childForceExpandWidth = false; hs.childForceExpandHeight = false;
         rowSel.gameObject.AddComponent<LayoutElement>().preferredHeight = 44;
 
         // подпись слева
         UIPrimitives.Label(rowSel, "Patient", 18, false, UIPrimitives.Text);
 
-        // данные
-        var patients = SimplePatientStore.GetAll();
+        // данные для dropdown
+        var patients = SimplePatientStore.GetAll();                    // твой источник
         var options = patients.Select(p => $"{p.Id}. {p.Name}").ToList();
+        var map = patients.Select(p => (p.Id, p.Name)).ToList();  // для обратного маппинга
 
-        // сам dropdown
-        var (dd, _) = UIPrimitives.Dropdown(rowSel, options, 0, new Vector2(420, 44));
+        // сам dropdown (сохраняем ссылку в поле класса)
+        (ddPatient, _) = UIPrimitives.Dropdown(rowSel, options, options.Count > 0 ? 0 : -1, new Vector2(420, 44));
 
         // подпись выбранного
         selectedPatientText = UIPrimitives.Label(
             card,
             options.Count > 0 ? $"Selected: {options[0]}" : "Selected: none",
-            16, false, UIPrimitives.TextMuted
-        );
+            16, false, UIPrimitives.TextMuted);
 
-        // инициализация
-        if (patients.Count > 0)
-            selectedPatientId = patients[Mathf.Clamp(dd.value, 0, patients.Count - 1)].Id;
-
-        // обработчик выбора
-        dd.onValueChanged.AddListener(i =>
+        // инициализация/доступность полей
+        if (options.Count == 0)
         {
-            if (i >= 0 && i < patients.Count)
-            {
-                selectedPatientId = patients[i].Id;
-                if (selectedPatientText != null)
-                    selectedPatientText.text = $"Selected: {patients[i].Id}. {patients[i].Name}";
-            }
-        });
+            selectedPatientId = -1;
+            SetProtocolInteractable(false);
+        }
+        else
+        {
+            // подставим настройки первого пациента и включим поля
+            OnPatientSelected(ddPatient.value, map);
+            ddPatient.onValueChanged.AddListener(i => OnPatientSelected(i, map));
+        }
+
 
         // --- Protocol fields ---
         MakeRow(card, "Level 1 Duration", out fL1, defaultVal: "60");
@@ -284,7 +341,8 @@ public void RebuildEditorPreview()
         var h = footer.gameObject.AddComponent<HorizontalLayoutGroup>();
         h.childAlignment = TextAnchor.MiddleRight;
         h.padding = new RectOffset(0, 0, 8, 8);
-        UIPrimitives.Button(footer, "Start", 22, StartGame);
+        btnStart = UIPrimitives.Button(footer, "Start", 22, StartGame);
+
 
         return view;
     }
@@ -319,26 +377,30 @@ public void RebuildEditorPreview()
         var leTF = searchField.GetComponent<LayoutElement>(); if (leTF != null) leTF.preferredWidth = 420;
         UIPrimitives.Button(rowSearch, "Find", 16, () => RebuildPatientList(), 120f);
 
-        // Add row
+        // --- Add row --------------------------------------------------------------
         var rowAdd = UIPrimitives.Panel(card, "RowAdd", new Color32(0, 0, 0, 0));
         var ha = rowAdd.gameObject.AddComponent<HorizontalLayoutGroup>();
-        ha.spacing = 8; ha.childAlignment = TextAnchor.MiddleLeft;
-        ha.childForceExpandWidth = false; ha.childForceExpandHeight = false;
-        var leRA = rowAdd.gameObject.AddComponent<LayoutElement>(); leRA.preferredHeight = 44;
+        ha.spacing = 8;
+        ha.childAlignment = TextAnchor.MiddleLeft;
+        ha.childForceExpandWidth = false;
+        ha.childForceExpandHeight = false;
+
+        rowAdd.gameObject.AddComponent<LayoutElement>().preferredHeight = 44;
+
+        // слева надпись
         var lblAdd = UIPrimitives.Label(rowAdd, "Add", 18, false, UIPrimitives.Text);
-        var leLblA = lblAdd.gameObject.AddComponent<LayoutElement>(); leLblA.preferredWidth = 100; leLblA.minWidth = 100;
-        (addNameField, _) = UIPrimitives.TextField(rowAdd, "Full name", "");
-        var leName = addNameField.GetComponent<LayoutElement>(); if (leName != null) leName.preferredWidth = 420;
-        UIPrimitives.Button(rowAdd, "Add", 16, () =>
-        {
-            var name = addNameField.text?.Trim();
-            if (!string.IsNullOrEmpty(name))
-            {
-                SimplePatientStore.Add(name);
-                addNameField.text = "";
-                RebuildPatientList();
-            }
-        }, 120f);
+        var leLblA = lblAdd.gameObject.AddComponent<LayoutElement>();
+        leLblA.preferredWidth = 100; leLblA.minWidth = 100;
+
+        // поле ввода имени
+        RectTransform nameRoot;
+        (addNameField, nameRoot) = UIPrimitives.TextField(rowAdd, "Patient name...", "");
+        var leName = nameRoot.GetComponent<LayoutElement>() ?? nameRoot.gameObject.AddComponent<LayoutElement>();
+        leName.preferredWidth = 420;
+
+        // кнопка "Add" -> вызываем наш обработчик
+        UIPrimitives.Button(rowAdd, "Add", 18, AddPatient, 120f);
+
 
         // List
         var listHost = UIPrimitives.Panel(card, "ListHost", new Color32(0, 0, 0, 0));
@@ -349,6 +411,110 @@ public void RebuildEditorPreview()
         RebuildPatientList();
         return (RectTransform)view;
     }
+
+    // Добавление пациента из поля addNameField + сохранение дефолтных настроек
+    void AddPatient()
+    {
+        var name = addNameField != null ? addNameField.text?.Trim() : null;
+        if (string.IsNullOrEmpty(name))
+        {
+            Debug.LogWarning("[Patients] Enter a name before adding.");
+            return;
+        }
+
+        // 1) ваш стор: добавляем по имени
+        SimplePatientStore.Add(name);
+
+        // 2) получаем Id новосозданного пациента
+        var all = SimplePatientStore.GetAll();
+        int newId = -1;
+
+        // Если имена могут повторяться — берём ПОСЛЕДНИЙ с этим именем
+        for (int i = all.Count - 1; i >= 0; i--)
+        {
+            if (string.Equals(all[i].Name, name, System.StringComparison.Ordinal))
+            {
+                newId = all[i].Id;
+                break;
+            }
+        }
+
+        // 3) создаём дефолтные настройки для него (если Id нашли)
+        if (newId > 0)
+            PatientSettingsDB.Save(newId, new PatientSettings());
+
+        // 4) обновляем UI
+        RefreshPatientsListUI();
+        RebuildNewSessionDropdownAndSelect(newId);
+
+        // 5) очистим поле ввода
+        if (addNameField) addNameField.text = string.Empty;
+
+        Debug.Log($"[Patients] Added: {(newId > 0 ? newId.ToString() : "?")} {name}");
+    }
+
+
+    // Полная перерасчётка dropdown на вкладке "New session" + выбор пациента selectId
+    void RebuildNewSessionDropdownAndSelect(int selectId = -1)
+    {
+        if (ddPatient == null) return; // dropdown ещё не создан (например, ты на вкладке Patients)
+
+        var patients = SimplePatientStore.GetAll();
+        var options = patients.Select(p => $"{p.Id}. {p.Name}").ToList();
+        var map = patients.Select(p => (p.Id, p.Name)).ToList();
+
+        ddPatient.onValueChanged.RemoveAllListeners();
+        ddPatient.options = options.Select(s => new TMP_Dropdown.OptionData(s)).ToList();
+
+        int newIndex = 0;
+        if (selectId > 0)
+        {
+            newIndex = map.FindIndex(m => m.Id == selectId);
+            if (newIndex < 0) newIndex = 0;
+        }
+
+        // если пациентов нет — выключаем поля протокола
+        if (options.Count == 0)
+        {
+            ddPatient.value = 0;
+            ddPatient.RefreshShownValue();
+            selectedPatientId = -1;
+            selectedPatientText.text = "Selected: none";
+            SetProtocolInteractable(false);
+            return;
+        }
+
+        ddPatient.value = newIndex;
+        ddPatient.RefreshShownValue();
+
+        // руками вызовем обновление UI для выбранного
+        OnPatientSelected(ddPatient.value, map);
+
+        // подписка на смену выбора (захватываем актуальную map)
+        ddPatient.onValueChanged.AddListener(i => OnPatientSelected(i, map));
+    }
+
+    // Простейшее обновление списка пациентов в левой панели "Patients"
+    // Если у тебя уже есть свой рендер — можешь вызывать его тут.
+    void RefreshPatientsListUI()
+    {
+        if (patientsListContent == null) return;
+
+        // Почистим текущий контент
+        foreach (Transform child in patientsListContent)
+            Destroy(child.gameObject);
+
+        // Перестроим список
+        var list = SimplePatientStore.GetAll();
+        foreach (var p in list)
+        {
+            var row = UIPrimitives.Panel(patientsListContent, $"PatientRow_{p.Id}", new Color32(0, 0, 0, 0));
+            var h = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+            h.spacing = 8; h.childForceExpandWidth = true;
+            UIPrimitives.Label(row, $"{p.Id}. {p.Name}", 18, false, UIPrimitives.Text);
+        }
+    }
+
 
     RectTransform CreateSettingsView(Transform parent)
     {
@@ -458,21 +624,33 @@ public void RebuildEditorPreview()
     // ================== START GAME ==================
     void StartGame()
     {
-        // Считываем протокол
+        // Сначала читаем UI -> сохраняем для выбранного пациента
+        if (selectedPatientId > 0)
+        {
+            var ps = ReadSettingsFromUI();
+            PatientSettingsDB.Save(selectedPatientId, ps);
+            Debug.Log($"[PatientSettings] Saved for patientId={selectedPatientId} to {PatientSettingsDB.FilePath}\n{ps}");
+        }
+        else
+        {
+            Debug.LogWarning("[PatientSettings] No patient selected. Start is disabled but guard stays.");
+            return;
+        }
+
+        // Параллельно заполним AppState.Config (как у тебя уже было)
         AppState.Config.Level1Duration = UIPrimitives.ParseOrDefault(fL1, 60f);
         AppState.Config.Level2Duration = UIPrimitives.ParseOrDefault(fL2, 40f);
         AppState.Config.RestSeconds = UIPrimitives.ParseOrDefault(fRest, 10f);
         AppState.Config.RedChance = UIPrimitives.ParseOrDefault(fRedChance, 0.35f);
-        AppState.Config.StopKinectOnGameEnd = tStopKinect != null && tStopKinect.isOn;
-        AppState.Config.StopBetweenLevels = tStopBetween != null && tStopBetween.isOn;
-
-        // Выбранный пациент → в конфиг
+        AppState.Config.StopKinectOnGameEnd = tStopKinect && tStopKinect.isOn;
+        AppState.Config.StopBetweenLevels = tStopBetween && tStopBetween.isOn;
         AppState.Config.SelectedPatientId = selectedPatientId;
-        AppState.Config.SelectedPatientName = (selectedPatientText != null) ? selectedPatientText.text : "";
 
+        // Переход в геймплей
         if (!string.IsNullOrEmpty(gameplaySceneName))
             SceneManager.LoadScene(gameplaySceneName);
         else
             Debug.LogError("[AppShell] gameplaySceneName is empty. Set it in the inspector.");
     }
+
 }

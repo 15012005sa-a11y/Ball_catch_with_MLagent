@@ -98,10 +98,6 @@ public static class UIPrimitives
         scaler.referenceResolution = new Vector2(1920, 1080);
         scaler.matchWidthOrHeight = 0.5f;
 
-        // EventSystem (создаём только если в сцене нет ни одного)
-        if (UnityEngine.Object.FindObjectOfType<EventSystem>() == null)
-            _ = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
-
         return canvas;
     }
 
