@@ -1,140 +1,70 @@
-using System.Collections.Generic;
+п»їusing System;
+using System.Collections.Generic;        // в†ђ РЅСѓР¶РЅРѕ РґР»СЏ Dictionary/List
 using UnityEngine;
-using System.IO;
 
 public class PatientManager : MonoBehaviour
 {
     public static PatientManager Instance { get; private set; }
 
-    // Текущий выбранный пациент — индекс в списке patients
-    public int CurrentPatientID { get; private set; } = -1;
+    [Header("Seed data for demo")]
+    public Patient[] patients = new Patient[2]
+    {
+        new Patient{ id=1, displayName="Patient 1", age=62, startedRehab="01.09.25",
+            settings = new GameSettings{ level1DurationSec=180, level2DurationSec=120, restTimeSec=60, redChance=0.35f } },
+        new Patient{ id=2, displayName="Patient 2", age=58, startedRehab="21.08.25",
+            settings = new GameSettings{ level1DurationSec=180, level2DurationSec=120, restTimeSec=60, redChance=0.35f } },
+    };
 
-    [Header("Patients List")]
-    public List<PatientCard> patients = new List<PatientCard>();
+    public int selectedIndex = 0;
 
-    // Ссылка на карточку текущего пациента
-    public PatientCard currentPatient { get; private set; }
+    public Patient Current =>
+        (patients != null && patients.Length > 0)
+            ? patients[Mathf.Clamp(selectedIndex, 0, patients.Length - 1)]
+            : null;
 
-    private string savePath;
+    // вњ… РђРґР°РїС‚РµСЂ РґР»СЏ СЃС‚Р°СЂРѕРіРѕ РєРѕРґР° (ScoreManager Рё РґСЂ.)
+    public int CurrentPatientID => Current != null ? Current.id : -1;
+
+    public event Action<Patient> OnSelectedPatientChanged;
+
+    // ===== РСЃС‚РѕСЂРёСЏ СЃРµР°РЅСЃРѕРІ РїРѕ РїР°С†РёРµРЅС‚Р°Рј =====
+    private readonly Dictionary<int, List<SessionRecord>> _history =
+        new Dictionary<int, List<SessionRecord>>();
+
+    /// <summary>Р’РµСЂРЅСѓС‚СЊ РёСЃС‚РѕСЂРёСЋ СЃРµР°РЅСЃРѕРІ РїР°С†РёРµРЅС‚Р° (СЃРѕР·РґР°СЃС‚ РїСѓСЃС‚СѓСЋ, РµСЃР»Рё РµС‘ РµС‰С‘ РЅРµС‚).</summary>
+    public List<SessionRecord> GetSessionHistory(int patientId)
+    {
+        if (!_history.TryGetValue(patientId, out var list))
+        {
+            list = new List<SessionRecord>();
+            _history[patientId] = list;
+        }
+        return list;
+    }
+
+    /// <summary>Р”РѕР±Р°РІРёС‚СЊ Р·Р°РїРёСЃСЊ Рѕ СЃРµР°РЅСЃРµ РІ РёСЃС‚РѕСЂРёСЋ РїР°С†РёРµРЅС‚Р°.</summary>
+    public void AddSessionRecord(int patientId, SessionRecord record)
+    {
+        GetSessionHistory(patientId).Add(record);
+    }
+    // ========================================
 
     private void Awake()
     {
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-            savePath = Path.Combine(Application.persistentDataPath, "patients.json");
-            LoadPatients();
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        Instance = this;
+        // DontDestroyOnLoad(gameObject); // РµСЃР»Рё РјРµРЅРµРґР¶РµСЂ РЅСѓР¶РµРЅ РјРµР¶РґСѓ СЃС†РµРЅР°РјРё
     }
 
-    /// <summary>
-    /// Создает новую карточку пациента и сразу его выбирает.
-    /// </summary>
-    public void CreatePatient(string name, int age, string gender, float ballSpeed, float interval, DifficultyLevel difficulty)
+    public void SelectByIndex(int index)
     {
-        var patient = new PatientCard(name, age, gender, ballSpeed, interval, difficulty);
-        patients.Add(patient);
-        CurrentPatientID = patients.Count - 1;
-        currentPatient = patient;
-        SavePatients();
+        selectedIndex = Mathf.Clamp(index, 0, patients.Length - 1);
+        OnSelectedPatientChanged?.Invoke(Current);
     }
 
-    /// <summary>
-    /// Выбирает пациента по индексу в списке.
-    /// </summary>
-    public void SelectPatient(int id)
+    public void SelectById(int id)
     {
-        if (id >= 0 && id < patients.Count)
-        {
-            CurrentPatientID = id;
-            currentPatient = patients[id];
-        }
-        else
-        {
-            Debug.LogWarning($"[SelectPatient] Пациент с ID {id} не найден.");
-        }
-    }
-
-    /// <summary>
-    /// Выбирает пациента по имени.
-    /// </summary>
-    public void SelectPatient(string name)
-    {
-        int index = patients.FindIndex(p => p.patientName == name);
-        if (index >= 0)
-        {
-            SelectPatient(index);
-        }
-        else
-        {
-            Debug.LogWarning($"[SelectPatient] Пациент с именем '{name}' не найден.");
-        }
-    }
-
-    /// <summary>
-    /// Добавляет запись сессии текущему пациенту.
-    /// </summary>
-    public void AddSessionRecord(SessionRecord record)
-    {
-        if (currentPatient != null)
-        {
-            currentPatient.AddSessionRecord(record);
-            SavePatients();
-        }
-        else
-        {
-            Debug.LogWarning("[AddSessionRecord] Пациент не выбран. Сессия не сохранена.");
-        }
-    }
-
-    /// <summary>
-    /// Сохраняет всех пациентов и их данные в JSON-файл.
-    /// </summary>
-    public void SavePatients()
-    {
-        var wrapper = new PatientListWrapper(patients);
-        string json = JsonUtility.ToJson(wrapper, true);
-        File.WriteAllText(savePath, json);
-        Debug.Log($"[SavePatients] Данные сохранены: {savePath}");
-        Debug.Log("Data folder: " + Application.persistentDataPath);
-
-    }
-
-    /// <summary>
-    /// Загружает пациентов из JSON. Если список не пуст — автоматически выбирает первого.
-    /// </summary>
-    public void LoadPatients()
-    {
-        if (File.Exists(savePath))
-        {
-            string json = File.ReadAllText(savePath);
-            var wrapper = JsonUtility.FromJson<PatientListWrapper>(json);
-            patients = wrapper.patients ?? new List<PatientCard>();
-            Debug.Log($"[LoadPatients] Загружено {patients.Count} пациентов из {savePath}");
-        }
-        else
-        {
-            Debug.Log($"[LoadPatients] Файл не найден ({savePath}). Создаём пустой список.");
-            patients = new List<PatientCard>();
-        }
-
-        // Автовыбор первого пациента
-        if (patients.Count > 0)
-        {
-            SelectPatient(0);
-            Debug.Log($"[LoadPatients] Автовыбран пациент ID 0: {patients[0].patientName}");
-        }
-    }
-
-    [System.Serializable]
-    private class PatientListWrapper
-    {
-        public List<PatientCard> patients;
-        public PatientListWrapper(List<PatientCard> list) { patients = list; }
+        for (int i = 0; i < patients.Length; i++)
+            if (patients[i].id == id) { SelectByIndex(i); return; }
     }
 }

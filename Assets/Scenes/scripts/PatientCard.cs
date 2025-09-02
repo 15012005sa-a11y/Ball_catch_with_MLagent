@@ -1,62 +1,23 @@
-using System;
-using System.Collections.Generic;
+п»їusing System.Collections.Generic;
+using UnityEngine;  // в†ђ РЅСѓР¶РЅРѕ РґР»СЏ MonoBehaviour, Button, etc.
 
-[Serializable]
-public class PatientCard
+public class PatientCard : MonoBehaviour
 {
-    public string patientName;
-    public int age;
-    public string gender;
+    [Tooltip("ID РїР°С†РёРµРЅС‚Р°, РєРѕС‚РѕСЂС‹Р№ Р±СѓРґРµС‚ РІС‹Р±РёСЂР°С‚СЊСЃСЏ РїСЂРё РєР»РёРєРµ РїРѕ РєР°СЂС‚РѕС‡РєРµ")]
+    public int patientId = 1;
 
-    // Персональные настройки
-    public float initialBallSpeed;
-    public float spawnInterval;
+    // РђРґР°РїС‚РµСЂ РґР»СЏ СЃС‚Р°СЂРѕРіРѕ РєРѕРґР°: card.sessionHistory
+    public List<SessionRecord> sessionHistory =>
+        PatientManager.Instance != null
+            ? PatientManager.Instance.GetSessionHistory(patientId)
+            : _empty;
 
-    // Уровень сложности
-    public DifficultyLevel difficultyLevel;
+    private static readonly List<SessionRecord> _empty = new List<SessionRecord>();
 
-    // История прогресса
-    public List<SessionRecord> sessionHistory;
-
-    public void AddSessionRecord(SessionRecord record)
+    // РЅР°Р·РЅР°С‡СЊ СЌС‚РѕС‚ РјРµС‚РѕРґ РІ OnClick() Сѓ Button РЅР° РєР°СЂС‚РѕС‡РєРµ
+    public void OnClick()
     {
-        sessionHistory.Add(record);
+        if (PatientManager.Instance != null)
+            PatientManager.Instance.SelectById(patientId);
     }
-
-
-    // Конструктор
-    public PatientCard(string name, int age, string gender, float ballSpeed, float interval, DifficultyLevel difficulty)
-    {
-        this.patientName = name;
-        this.age = age;
-        this.gender = gender;
-        this.initialBallSpeed = ballSpeed;
-        this.spawnInterval = interval;
-        this.difficultyLevel = difficulty;
-        this.sessionHistory = new List<SessionRecord>();
-    }
-}
-
-// История одной сессии
-[Serializable]
-public class SessionRecord
-{
-    public DateTime sessionDate;
-    public int score;
-    public float successRate;
-
-    public SessionRecord(int score, float successRate)
-    {
-        this.sessionDate = DateTime.Now;
-        this.score = score;
-        this.successRate = successRate;
-    }
-}
-
-public enum DifficultyLevel
-{
-    Easy,
-    Medium,
-    Hard,
-    Adaptive
 }
