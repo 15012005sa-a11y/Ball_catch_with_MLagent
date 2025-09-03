@@ -42,6 +42,18 @@ public class PatientManager : MonoBehaviour
         return list;
     }
 
+    public event System.Action OnPatientsChanged;
+    public int GetNextId() => (patients == null || patients.Length == 0) ? 1 : System.Linq.Enumerable.Max(patients, p => p.id) + 1;
+    public void AddPatient(Patient p)
+    {
+        var list = new System.Collections.Generic.List<Patient>(patients ?? System.Array.Empty<Patient>());
+        list.Add(p);
+        patients = list.ToArray();
+        OnPatientsChanged?.Invoke();
+        SelectByIndex(patients.Length - 1);
+    }
+
+
     /// <summary>Добавить запись о сеансе в историю пациента.</summary>
     public void AddSessionRecord(int patientId, SessionRecord record)
     {
