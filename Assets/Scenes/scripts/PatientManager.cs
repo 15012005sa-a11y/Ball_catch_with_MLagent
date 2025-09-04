@@ -78,6 +78,26 @@ public class PatientManager : MonoBehaviour
         }
     }
 
+    public void RemovePatient(int id)
+    {
+        var list = new List<Patient>(patients ?? System.Array.Empty<Patient>());
+        int idx = list.FindIndex(p => p.id == id);
+        if (idx < 0) return;                // такого нет — выходим
+
+        list.RemoveAt(idx);
+        patients = list.ToArray();
+
+        // если ведёте истории — подчистим
+        _history.Remove(id);
+
+        // поправим выбранный индекс
+        if (patients.Length == 0) selectedIndex = 0;
+        else selectedIndex = Mathf.Clamp(selectedIndex > idx ? selectedIndex - 1 : selectedIndex, 0, patients.Length - 1);
+
+        OnPatientsChanged?.Invoke();        // перестроить карточки
+        OnSelectedPatientChanged?.Invoke(Current);
+    }
+
     private void OnApplicationQuit()
     {
         SavePatientsToDisk();

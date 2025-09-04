@@ -1,9 +1,14 @@
 using UnityEngine;
+using UnityEngine.UI; // для LayoutRebuilder
 
+[DisallowMultipleComponent]
 public class PatientsSectionUI : MonoBehaviour
 {
-    public Transform cardsRow;      // контейнер с Horizontal Layout Group
-    public GameObject cardPrefab;   // PatientCardPrefab
+    // CardsContent (контейнер с Horizontal Layout Group)
+    public Transform cardsRow;
+
+    // Префаб карточки (ваш Patient_1_Card из Project)
+    public GameObject cardPrefab;
 
     void OnEnable()
     {
@@ -24,25 +29,30 @@ public class PatientsSectionUI : MonoBehaviour
     public void Rebuild()
     {
         var pm = PatientManager.Instance;
-        Debug.Log($"[PatientsSectionUI] Rebuild: pm.patients.Length = {(pm?.patients?.Length ?? 0)}");
-
         if (pm == null || cardsRow == null || cardPrefab == null) return;
 
-        // очистить только карточки
+        var data = pm.patients ?? System.Array.Empty<Patient>();
+        Debug.Log($"[PatientsSectionUI] Rebuild: count = {data.Length}");
+
+        // 1) Полностью очищаем контейнер
         for (int i = cardsRow.childCount - 1; i >= 0; i--)
         {
             var ch = cardsRow.GetChild(i);
-            if (ch.GetComponent<PatientCardView>() != null)
-                Destroy(ch.gameObject);
+            Destroy(ch.gameObject);
         }
 
-        // создать по всем пациентам
-        foreach (var p in pm.patients ?? System.Array.Empty<Patient>())
+        // 2) Создаём карточки заново по данным
+        foreach (var p in data)
         {
             var go = Instantiate(cardPrefab, cardsRow);
             go.transform.localScale = Vector3.one;
+
             var view = go.GetComponent<PatientCardView>();
-            if (view) view.Bind(p);
+            if (view != null) view.Bind(p);
         }
+
+        // 3) Принудительно обновить лэйаут, чтобы ширина контента пересчиталась
+        var rt = cardsRow as RectTransform;
+        if (rt) LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
     }
 }
