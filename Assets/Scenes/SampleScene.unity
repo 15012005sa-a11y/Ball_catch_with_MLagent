@@ -11621,8 +11621,8 @@ MonoBehaviour:
   blueMaterial: {fileID: 2100000, guid: 963be82a8dbb863408a13c74ed241e59, type: 2}
   redMaterial: {fileID: 2100000, guid: 5b61eb418615c424c9f45933efa0eb06, type: 2}
   redChance: 0.35
-  level1Duration: 16
-  level2Duration: 16
+  level1Duration: 75
+  level2Duration: 60
   voiceSource: {fileID: 2034391474}
   voiceLevel1: {fileID: 8300000, guid: e8a4cfff7366f134da77b61906acba25, type: 3}
   voiceLevel2: {fileID: 8300000, guid: 425ba2f5faa5abb4db0003fea32ecd71, type: 3}
@@ -17208,24 +17208,25 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   patients:
-  - patientName: "\u041F\u0430\u0446\u0438\u0435\u043D\u0442 1"
+  - id: 0
+    displayName: Patient 1
     age: 68
-    gender: "\u041C"
-    initialBallSpeed: 2
-    spawnInterval: 1
-    difficultyLevel: 0
-    sessionHistory:
-    - score: 0
-      successRate: 0
-  - patientName: "\u041F\u0430\u0446\u0438\u0435\u043D\u0442 2"
+    startedRehab: 01.09.25
+    settings:
+      level1DurationSec: 180
+      level2DurationSec: 120
+      restTimeSec: 60
+      redChance: 0.35
+  - id: 0
+    displayName: Patient 1
     age: 72
-    gender: "\u0416"
-    initialBallSpeed: 1.5
-    spawnInterval: 1.5
-    difficultyLevel: 0
-    sessionHistory:
-    - score: 0
-      successRate: 0
+    startedRehab: 01.09.25
+    settings:
+      level1DurationSec: 180
+      level2DurationSec: 120
+      restTimeSec: 60
+      redChance: 0.35
+  selectedIndex: 0
 --- !u!4 &1808713655
 Transform:
   m_ObjectHideFlags: 0

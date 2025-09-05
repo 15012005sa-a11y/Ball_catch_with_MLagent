@@ -9,18 +9,19 @@ public class PatientCardView : MonoBehaviour
     public TMP_Text titleTMP; public Text titleUGUI;          // "Patient_1Text"
 
     [Header("Строки значений")]
-    public TMP_Text nameTMP; public Text nameUGUI;           // "Rows/Row1/Value"  ← Имя пациента
-    public TMP_Text ageTMP; public Text ageUGUI;            // "Rows/Row2/Value"  ← Возраст
-    public TMP_Text startTMP; public Text startUGUI;          // "Rows/Row3/Value"  ← Начало реабилитаций
+    public TMP_Text nameTMP; public Text nameUGUI;           // "Rows/Row1/Value"
+    public TMP_Text ageTMP; public Text ageUGUI;            // "Rows/Row2/Value"
+    public TMP_Text startTMP; public Text startUGUI;          // "Rows/Row3/Value"
 
-    [Header("UI (необязательно)")]
-    public Button deleteButton;                               // "DeleteBtn" (X в углу)
+    [Header("UI")]
+    public Button deleteButton;                               // "DeleteBtn" (X)
+    public ConfirmOverlayPanel confirmOverlay;                // ModalLayer/ConfirmOverlay (можно не заполнять)
 
     private int boundId = -1;
+    private string boundName = "";
 
     void Awake()
     {
-        // Автопоиск нужных узлов, если ссылки не заданы в инспекторе
         Auto(ref titleTMP, ref titleUGUI, "Patient_1Text");
         Auto(ref nameTMP, ref nameUGUI, "Rows/Row1/Value");
         Auto(ref ageTMP, ref ageUGUI, "Rows/Row2/Value");
@@ -39,33 +40,62 @@ public class PatientCardView : MonoBehaviour
         if (deleteButton) deleteButton.onClick.RemoveListener(OnDeleteClicked);
     }
 
-    /// <summary>Заполнить карточку данными пациента.</summary>
     public void Bind(Patient p)
     {
         if (p == null) return;
+
         boundId = p.id;
+        boundName = p.displayName ?? "patient";
 
-        // Заголовок сверху
         Set(titleTMP, titleUGUI, p.displayName);
+        Set(nameTMP, nameUGUI, p.displayName);
+        Set(ageTMP, ageUGUI, p.age.ToString());
+        Set(startTMP, startUGUI, p.startedRehab);
 
-        // Значения по строкам
-        Set(nameTMP, nameUGUI, p.displayName);      // Строка 1: Имя пациента
-        Set(ageTMP, ageUGUI, p.age.ToString());   // Строка 2: Возраст
-        Set(startTMP, startUGUI, p.startedRehab);     // Строка 3: Начало реабилитаций
-
-        // Пробрасываем id во вспомогательные скрипты (если используются)
         var card = GetComponent<PatientCard>(); if (card) card.patientId = p.id;
         var hi = GetComponent<PatientCardHighlight>(); if (hi) hi.patientId = p.id;
     }
 
-    private void OnDeleteClicked()
+    void OnDeleteClicked()
     {
         if (boundId < 0) return;
-        var pm = PatientManager.Instance;
-        if (pm != null) pm.RemovePatient(boundId);
+
+        // 1) Попробуем найти ConfirmOverlayPanel, если ссылка не задана
+        var ov = GetOverlay();
+        if (ov != null)
+        {
+            // Ваша панель имеет простой Show(int id) — покажем её.
+            // Логика удаления по кнопке "Да" должна быть внутри ConfirmOverlayPanel.
+            ov.Show(boundId);
+            return;
+        }
+
+        // 2) Фолбэк — ConfirmDialog (если есть)
+        var dlg = ConfirmDialog.Instance;
+        if (dlg != null)
+        {
+            dlg.Ask(
+                "Удалить пациента",
+                $"Вы точно хотите удалить «{boundName}»?",
+                onYes: () => PatientManager.Instance?.RemovePatient(boundId),
+                onNo: null
+            );
+            return;
+        }
+
+        // 3) Ничего не нашли — удалим сразу (крайний вариант)
+        Debug.LogWarning("[PatientCardView] Confirm overlay not found — deleting immediately.");
+        PatientManager.Instance?.RemovePatient(boundId);
     }
 
-    // ---------- helpers ----------
+    // --- helpers ---
+    ConfirmOverlayPanel GetOverlay()
+    {
+        if (confirmOverlay == null)
+            confirmOverlay = Object.FindObjectOfType<ConfirmOverlayPanel>(true); // true — искать и в неактивных
+        return confirmOverlay;
+    }
+
     void Auto(ref TMP_Text tmp, ref Text ugui, string path)
     {
         if (!tmp && !ugui)
