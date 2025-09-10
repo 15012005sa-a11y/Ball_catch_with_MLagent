@@ -1,4 +1,4 @@
-using TMPro;
+п»їusing TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using System;
@@ -9,13 +9,13 @@ public class KpiCardView : MonoBehaviour
     [SerializeField] private TMP_Text valueText;
     [SerializeField] private TMP_Text labelText;
     [SerializeField] private RawImage sparkline;   // optional
-    [SerializeField] private Image background;     // для акцентной подсветки, если нужно
+    [SerializeField] private Image background;     // РґР»СЏ Р°РєС†РµРЅС‚РЅРѕР№ РїРѕРґСЃРІРµС‚РєРё, РµСЃР»Рё РЅСѓР¶РЅРѕ
 
     [Header("Sparkline")]
     [SerializeField] private int sparkWidth = 220;
     [SerializeField] private int sparkHeight = 28;
-    [SerializeField] private Color sparkColor = new Color(0.27f, 0.83f, 0.52f); // мягкий зелёный
-    [SerializeField] private Color sparkFade = new Color(0.27f, 0.83f, 0.52f, 0.2f); // фон линии (fill)
+    [SerializeField] private Color sparkColor = new Color(0.27f, 0.83f, 0.52f); // РјСЏРіРєРёР№ Р·РµР»С‘РЅС‹Р№
+    [SerializeField] private Color sparkFade = new Color(0.27f, 0.83f, 0.52f, 0.2f); // С„РѕРЅ Р»РёРЅРёРё (fill)
 
     private Texture2D _tex;
 
@@ -33,8 +33,8 @@ public class KpiCardView : MonoBehaviour
     }
 
     /// <summary>
-    /// Рисует спарклайн по массиву значений (N последних сессий).
-    /// Если min/max не заданы — берём по данным.
+    /// Р РёСЃСѓРµС‚ СЃРїР°СЂРєР»Р°Р№РЅ РїРѕ РјР°СЃСЃРёРІСѓ Р·РЅР°С‡РµРЅРёР№ (N РїРѕСЃР»РµРґРЅРёС… СЃРµСЃСЃРёР№).
+    /// Р•СЃР»Рё min/max РЅРµ Р·Р°РґР°РЅС‹ вЂ” Р±РµСЂС‘Рј РїРѕ РґР°РЅРЅС‹Рј.
     /// </summary>
     public void SetSparkline(float[] data, float? minOverride = null, float? maxOverride = null, bool invert = false)
     {
@@ -44,7 +44,7 @@ public class KpiCardView : MonoBehaviour
         float max = maxOverride ?? Mathf.Max(data);
         if (Mathf.Approximately(min, max)) max = min + 1f;
 
-        // Инициализация текстуры один раз
+        // РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ С‚РµРєСЃС‚СѓСЂС‹ РѕРґРёРЅ СЂР°Р·
         if (_tex == null || _tex.width != sparkWidth || _tex.height != sparkHeight)
         {
             _tex = new Texture2D(sparkWidth, sparkHeight, TextureFormat.RGBA32, false);
@@ -52,12 +52,12 @@ public class KpiCardView : MonoBehaviour
             _tex.filterMode = FilterMode.Bilinear;
         }
 
-        // Очистка
+        // РћС‡РёСЃС‚РєР°
         var clear = new Color32(0, 0, 0, 0);
         var pixels = _tex.GetPixels32();
         for (int i = 0; i < pixels.Length; i++) pixels[i] = clear;
 
-        // Нормализация и рисование
+        // РќРѕСЂРјР°Р»РёР·Р°С†РёСЏ Рё СЂРёСЃРѕРІР°РЅРёРµ
         int n = data.Length;
         Vector2 prev = Vector2.zero;
         for (int i = 0; i < n; i++)
@@ -75,15 +75,18 @@ public class KpiCardView : MonoBehaviour
 
         _tex.SetPixels32(pixels);
         _tex.Apply();
+        sparkline.enabled = true;
         sparkline.texture = _tex;
     }
 
     public void ClearSparkline()
     {
-        if (sparkline != null) sparkline.texture = null;
+        if (sparkline == null) return;
+        sparkline.enabled = false;           // в†ђ РІС‹РєР»СЋС‡Р°РµРј СЂРµРЅРґРµСЂ
+        sparkline.texture = null;
     }
 
-    // Простейшая антиалиасная линия (двойной проход)
+    // РџСЂРѕСЃС‚РµР№С€Р°СЏ Р°РЅС‚РёР°Р»РёР°СЃРЅР°СЏ Р»РёРЅРёСЏ (РґРІРѕР№РЅРѕР№ РїСЂРѕС…РѕРґ)
     private void DrawLineAA(Color32[] buf, int w, int h, Vector2 a, Vector2 b, Color col)
     {
         int steps = Mathf.Max(2, Mathf.CeilToInt(Vector2.Distance(a, b)));
@@ -94,7 +97,7 @@ public class KpiCardView : MonoBehaviour
             Vector2 p = a + d * i;
             int xi = (int)p.x;
             int yi = (int)p.y;
-            // Толщина 2px
+            // РўРѕР»С‰РёРЅР° 2px
             Plot(buf, w, h, xi, yi, col);
             Plot(buf, w, h, xi, yi + 1, new Color(col.r, col.g, col.b, col.a * 0.6f));
         }
