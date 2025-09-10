@@ -1,28 +1,33 @@
+п»їusing System;
+using System.Collections;
 using UnityEngine;
 using TMPro;
-using System.Collections;
 
 public class LevelDirector : MonoBehaviour
 {
+    public event Action OnGameStarted;
+    public event Action OnGameFinished;
+
+    [Header("Game flow")]
+    public bool twoLevels = true;                // РµСЃР»Рё false вЂ” Р·Р°РІРµСЂС€Р°РµРј СЃСЂР°Р·Сѓ РїРѕСЃР»Рµ 1 СѓСЂРѕРІРЅСЏ
+    private int currentLevel = 0;
+    private bool gameStarted = false;
+
     [Header("Refs")]
     public BallSpawnerBallCatch spawner;
     public ScoreManager score;
     public CountdownOverlay countdown;
 
-    [Header("Rest (между уровнями)")]
-    public float restBetweenLevelsSeconds = 10f;
-    [Tooltip("TMP_Text крупным шрифтом поверх экрана")]
+    [Header("Rest (РјРµР¶РґСѓ СѓСЂРѕРІРЅСЏРјРё)")]
+    public float restBetweenLevelsSeconds = 3f;
     public TMP_Text restText;
-    [Tooltip("CanvasGroup того же объекта (для плавного появления/скрытия) — опционально")]
     public CanvasGroup restGroup;
     public float restFadeTime = 0.25f;
 
-
-    [Header("Kinect control")]
-    [Tooltip("Перетащите сюда объект с Kinect (например, KinectController или KinectManager)")]
+    [Header("Kinect")]
     public GameObject kinectController;
     public bool stopKinectOnGameEnd = true;
-    public bool stopBetweenLevels = false;   // если хотите выключать между уровнями
+    public bool stopBetweenLevels = false;
 
     [Header("Level 2 visuals")]
     public Material blueMaterial;
@@ -35,24 +40,19 @@ public class LevelDirector : MonoBehaviour
 
     [Header("Voice")]
     public AudioSource voiceSource;
-    public AudioClip voiceLevel1;
-    public AudioClip voiceLevel2;
-    public AudioClip voiceReady;
+    public AudioClip voiceLevel1, voiceLevel2, voiceReady;
     public float voiceGapExtra = 0.1f;
 
-    [Header("UI (legacy banner)")]
+    [Header("Banner")]
     public TMP_Text levelBannerText;
     public float prepDelaySeconds = 3f;
-    public string readyText = "Приготовьтесь";
+    public string readyText = "РџСЂРёРіРѕС‚РѕРІСЊС‚РµСЃСЊ";
     public float bannerHoldSeconds = 0f;
     public float bannerFadeTime = 0.5f;
+    [TextArea] public string level1Banner = "1 СѓСЂРѕРІРµРЅСЊ: СЂР°Р·Р±РёРІР°Р№ РІСЃРµ С€Р°СЂРёРєРё";
+    [TextArea] public string level2Banner = "2 СѓСЂРѕРІРµРЅСЊ: РЅРµ СЂР°Р·Р±РёРІР°Р№ РєСЂР°СЃРЅС‹С…!";
 
-    [TextArea] public string level1Banner = "1 уровень: разбивай все шарики";
-    [TextArea] public string level2Banner = "2 уровень: не разбивай красных!";
-
-    private int currentLevel = 0;
-
-    void Awake()
+    private void Awake()
     {
         if (!spawner) spawner = FindObjectOfType<BallSpawnerBallCatch>();
         if (!score) score = FindObjectOfType<ScoreManager>();
@@ -64,55 +64,66 @@ public class LevelDirector : MonoBehaviour
         }
     }
 
-    void OnEnable() { if (score) score.OnSessionFinished.AddListener(OnSessionFinished); }
-    void OnDisable() { if (score) score.OnSessionFinished.RemoveListener(OnSessionFinished); }
-
-    // === Управление Kinect ===
-    void StartKinectTracking()
+    private void OnEnable()
     {
-        // Вариант 1: просто активируем/деактивируем объект
-        if (kinectController && !kinectController.activeSelf)
-            kinectController.SetActive(true);
+        if (score != null)
+            score.OnSessionFinished.AddListener(OnSessionFinished);
+    }
 
-        // Вариант 2 (если используете пакет RFilkov): попробовать запустить сенсор
-        var km = FindObjectOfType<KinectManager>();   // если класса нет — просто ничего не происходит
-        if (km != null)
+    private void OnDisable()
+    {
+        if (score != null)
+            score.OnSessionFinished.RemoveListener(OnSessionFinished);
+    }
+
+    // ==== Р—Р°РїСѓСЃРє РёР· РєРЅРѕРїРєРё В«РќР°С‡Р°С‚СЊ РёРіСЂСѓВ» ====
+    public void StartGameplay()
+    {
+        if (!gameStarted)
         {
-            try { km.StartKinect(); } catch { /* метод может отсутствовать – это нормально */ }
+            gameStarted = true;
+            OnGameStarted?.Invoke(); // СЃРїСЂСЏС‡РµРј В«Р“Р»Р°РІРЅР°СЏВ»
         }
+        StartLevel1();
     }
 
-    void StopKinectTracking()
-    {
-        // Вариант 1: выключаем объект с Kinect
-        var km = FindObjectOfType<KinectManager>();
-        if (km != null) { try { km.StopKinect(); } catch { } }
-    }
-
-    // === ПУСК УРОВНЯ 1 ===
     public void StartLevel1()
     {
-        StartKinectTracking();    // убедимся, что трекинг включён
+        if (!gameStarted)
+        {
+            gameStarted = true;
+            OnGameStarted?.Invoke();
+        }
 
+        StartKinectTracking();
         currentLevel = 1;
-        if (spawner) spawner.useColors = false;
 
-        score.SetShowStartButton(false);
-        score.SetShowGraphButton(false);
-        score.sessionDuration = level1Duration;
+        if (spawner) spawner.useColors = false;
+        if (score)
+        {
+            score.SetShowStartButton(false);
+            score.SetShowGraphButton(false);
+            score.sessionDuration = level1Duration;
+        }
 
         SpeakReadyThenLevel(voiceLevel1);
-
-        StartCoroutine(PrepThen(() => score.StartSession(), level1Banner));
+        StartCoroutine(PrepThen(() => score?.StartSession(), level1Banner));
     }
 
-    // === ПУСК УРОВНЯ 2 ===
-    void StartLevel2()
+    private void StartLevel2()
     {
-        if (stopBetweenLevels) StopKinectTracking();   // по желанию — выключить между уровнями
-        StartKinectTracking();                         // и снова включить перед вторым уровнем
+        if (!twoLevels)
+        {
+            // Р’РѕРѕР±С‰Рµ РЅРµ Р·Р°РїСѓСЃРєР°РµРј РІС‚РѕСЂРѕР№ СѓСЂРѕРІРµРЅСЊ
+            FinishAll();
+            return;
+        }
+
+        if (stopBetweenLevels) StopKinectTracking();
+        StartKinectTracking();
 
         currentLevel = 2;
+
         if (spawner)
         {
             spawner.useColors = true;
@@ -121,38 +132,95 @@ public class LevelDirector : MonoBehaviour
             spawner.redMaterial = redMaterial;
         }
 
-        score.SetShowStartButton(false);
-        score.SetShowGraphButton(false);
-        score.sessionDuration = level2Duration;
+        if (score)
+        {
+            score.SetShowStartButton(false);
+            score.SetShowGraphButton(false);
+            score.sessionDuration = level2Duration;
+        }
 
         SpeakReadyThenLevel(voiceLevel2);
-
-        StartCoroutine(PrepThen(() => score.StartSessionKeepScore(), level2Banner));
+        StartCoroutine(PrepThen(() => score?.StartSessionKeepScore(), level2Banner));
     }
 
-    // === Голос: сначала «Приготовьтесь», потом «Уровень …» ===
-    void SpeakReadyThenLevel(AudioClip levelClip)
+    // ==== Р—Р°РІРµСЂС€РµРЅРёСЏ СЃРµСЃСЃРёР№ РѕС‚ ScoreManager ====
+    private void OnSessionFinished()
+    {
+        if (currentLevel == 1 && twoLevels)
+        {
+            StartCoroutine(WaitAndStartLevel2());
+        }
+        else
+        {
+            FinishAll();
+        }
+    }
+
+    private void FinishAll()
+    {
+        if (score)
+        {
+            score.SetShowStartButton(true);
+            score.SetShowGraphButton(true);
+        }
+        currentLevel = 0;
+
+        if (stopKinectOnGameEnd) StopKinectTracking();
+
+        gameStarted = false;
+        OnGameFinished?.Invoke(); // РїРѕРєР°Р·Р°С‚СЊ В«Р“Р»Р°РІРЅР°СЏВ»
+    }
+
+    // ==== Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅРѕРµ ====
+    private void StartKinectTracking()
+    {
+        if (kinectController && !kinectController.activeSelf)
+            kinectController.SetActive(true);
+
+        if (kinectController)
+        {
+            var comp = kinectController.GetComponent("KinectManager");
+            if (comp != null)
+            {
+                try { comp.GetType().GetMethod("StartKinect")?.Invoke(comp, null); } catch { }
+            }
+        }
+    }
+
+    private void StopKinectTracking()
+    {
+        if (kinectController)
+        {
+            var comp = kinectController.GetComponent("KinectManager");
+            if (comp != null)
+            {
+                try { comp.GetType().GetMethod("StopKinect")?.Invoke(comp, null); } catch { }
+            }
+            // kinectController.SetActive(false); // РµСЃР»Рё РЅСѓР¶РЅРѕ
+        }
+    }
+
+    private void SpeakReadyThenLevel(AudioClip levelClip)
     {
         PlayVoice(voiceReady);
-        float delay = (voiceReady != null ? voiceReady.length : 0.4f) + voiceGapExtra;
+        float delay = (voiceReady ? voiceReady.length : 0.4f) + voiceGapExtra;
         PlayVoice(levelClip, delay);
     }
 
-    void PlayVoice(AudioClip clip, float delay = 0f)
+    private void PlayVoice(AudioClip clip, float delay = 0f)
     {
-        if (voiceSource == null || clip == null) return;
+        if (!voiceSource || !clip) return;
         if (delay <= 0f) voiceSource.PlayOneShot(clip);
         else StartCoroutine(PlayDelayed(clip, delay));
     }
 
-    IEnumerator PlayDelayed(AudioClip c, float d)
+    private IEnumerator PlayDelayed(AudioClip c, float d)
     {
         yield return new WaitForSeconds(d);
-        if (voiceSource != null && c != null) voiceSource.PlayOneShot(c);
+        if (voiceSource && c) voiceSource.PlayOneShot(c);
     }
 
-    // === Подготовка и запуск уровня ===
-    IEnumerator PrepThen(System.Action startAction, string title)
+    private IEnumerator PrepThen(Action startAction, string title)
     {
         int ticks = Mathf.Max(1, Mathf.CeilToInt(prepDelaySeconds));
 
@@ -206,49 +274,26 @@ public class LevelDirector : MonoBehaviour
         c.a = to; levelBannerText.color = c;
     }
 
-    // === Завершение сессии ===
-    private void OnSessionFinished()
-    {
-        if (currentLevel == 1)
-        {
-            // Пауза перед запуском 2-го уровня
-            StartCoroutine(WaitAndStartLevel2());
-        }
-        else
-        {
-            // Все уровни завершены
-            score.SetShowStartButton(true);
-            score.SetShowGraphButton(true);
-            currentLevel = 0;
-
-            if (stopKinectOnGameEnd)
-                StopKinectTracking();   // гасим Kinect после игры
-        }
-    }
-
     private IEnumerator WaitAndStartLevel2()
     {
         int ticks = Mathf.Max(1, Mathf.CeilToInt(restBetweenLevelsSeconds));
 
-        if (restText != null)
+        if (restText)
         {
-            // Показать
             if (restGroup) yield return StartCoroutine(FadeGroup(restGroup, 0f, 1f, restFadeTime));
             restText.gameObject.SetActive(true);
 
             for (int s = ticks; s > 0; s--)
             {
-                restText.text = $"Отдых... {s} сек";
+                restText.text = $"РћС‚РґС‹С…... {s} СЃРµРє";
                 yield return new WaitForSeconds(1f);
             }
 
-            // Скрыть
             if (restGroup) yield return StartCoroutine(FadeGroup(restGroup, 1f, 0f, restFadeTime));
             restText.gameObject.SetActive(false);
         }
         else
         {
-            // Если текст не назначен — просто ждём
             yield return new WaitForSeconds(restBetweenLevelsSeconds);
         }
 
@@ -270,6 +315,4 @@ public class LevelDirector : MonoBehaviour
         g.alpha = to;
         if (to <= 0f) g.gameObject.SetActive(false);
     }
-
-
 }
