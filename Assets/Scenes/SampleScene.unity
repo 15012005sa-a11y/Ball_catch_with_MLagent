@@ -4540,6 +4540,7 @@ GameObject:
   m_Component:
   - component: {fileID: 500489875}
   - component: {fileID: 500489876}
+  - component: {fileID: 500489877}
   m_Layer: 0
   m_Name: GameController
   m_TagString: Untagged
@@ -4597,6 +4598,21 @@ MonoBehaviour:
   redChance: 0.35
   blueMaterial: {fileID: 2100000, guid: 963be82a8dbb863408a13c74ed241e59, type: 2}
   redMaterial: {fileID: 2100000, guid: 5b61eb418615c424c9f45933efa0eb06, type: 2}
+--- !u!114 &500489877
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 500489873}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e0ba0bc8a25480e4f8faa762ff6260fe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  levelDirector: {fileID: 1279475879}
+  spawner: {fileID: 500489876}
+  score: {fileID: 1598290630}
 --- !u!1 &505322174
 GameObject:
   m_ObjectHideFlags: 0
@@ -7637,6 +7653,7 @@ GameObject:
   - component: {fileID: 828234039}
   - component: {fileID: 828234038}
   - component: {fileID: 828234041}
+  - component: {fileID: 828234042}
   m_Layer: 5
   m_Name: HomeButton
   m_TagString: Untagged
@@ -7774,6 +7791,18 @@ MonoBehaviour:
   homeButton: {fileID: 828234038}
   appShellSceneName: AppShell
   levelDirector: {fileID: 1279475879}
+--- !u!225 &828234042
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 828234036}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1001 &835667447
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -11759,6 +11788,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ca4d0ebcc47ab4b4ca8d0df244c5b17f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  twoLevels: 1
   spawner: {fileID: 500489876}
   score: {fileID: 1598290630}
   countdown: {fileID: 1292864505}

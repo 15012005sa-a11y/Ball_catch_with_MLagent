@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -7,42 +8,65 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public class PreferencesPanel : MonoBehaviour
 {
-    [Header("View (values on the right)")]
-    [SerializeField] private TextMeshProUGUI level1Text;   // VAL_Level1
-    [SerializeField] private TextMeshProUGUI level2Text;   // VAL_Level2
-    [SerializeField] private TextMeshProUGUI restText;     // VAL_Rest
-    [SerializeField] private TextMeshProUGUI chanceText;   // VAL_Chance
-
-    [Header("Edit (input fields)")]
-    [SerializeField] private TMP_InputField level1Input;   // IF_Level1
-    [SerializeField] private TMP_InputField level2Input;   // IF_Level2
-    [SerializeField] private TMP_InputField restInput;     // IF_Rest
-    [SerializeField] private TMP_InputField chanceInput;   // IF_Chance
-
     [Header("Selected label (optional)")]
-    [SerializeField] private TextMeshProUGUI selectedPatientLabel;
+    public TMP_Text selectedPatientLabel;
 
-    [Header("Change / Save button")]
-    [SerializeField] private Button changeButton;               // Change_button
-    [SerializeField] private TextMeshProUGUI changeButtonLabel; // TMP внутри кнопки
+    // ---------- View mode (read-only) ----------
+    [Header("Read-only labels (view mode)")]
+    public TMP_Text VAL_Level1;
+    public TMP_Text VAL_Level2;
+    public TMP_Text VAL_Rest;
+    public TMP_Text VAL_Chance;
 
-    private bool isEditing;
+    public TMP_Text VAL_SpawnInterval;   // NEW
+    public TMP_Text VAL_BallSpeed;       // NEW
+    public TMP_Text VAL_SpeedInc;        // NEW
+    public TMP_Text VAL_SpeedDec;        // NEW
 
-    // ------------ Unity ------------
+    // ---------- Edit mode (inputs) ----------
+    [Header("Inputs (edit mode)")]
+    public TMP_InputField IF_Level1;
+    public TMP_InputField IF_Level2;
+    public TMP_InputField IF_Rest;
+    public TMP_InputField IF_Chance;
+
+    public TMP_InputField IF_SpawnInterval; // NEW
+    public TMP_InputField IF_BallSpeed;     // NEW
+    public TMP_InputField IF_SpeedInc;      // NEW
+    public TMP_InputField IF_SpeedDec;      // NEW
+
+    // ---------- Button ----------
+    [Header("Change/Save button")]
+    public Button Change_button;
+    public TMP_Text Change_buttonLabel;
+
+    private bool editMode; // вспомогательный флаг, но решение теперь опирается на видимость инпутов
+    private static readonly CultureInfo INV = CultureInfo.InvariantCulture;
+
+    // алиасы имён (новые/наследие)
+    private static readonly string[] N_L1 = { "level1DurationSec", "Level1Duration" };
+    private static readonly string[] N_L2 = { "level2DurationSec", "Level2Duration" };
+    private static readonly string[] N_REST = { "restTimeSec", "RestSeconds" };
+    private static readonly string[] N_CH = { "redChance", "RedChance" };
+    private static readonly string[] N_SPA = { "spawnInterval", "SpawnInterval" };
+    private static readonly string[] N_SPD = { "ballSpeed", "BallSpeed" };
+    private static readonly string[] N_INC = { "speedIncreaseFactor", "SpeedIncreaseFactor" };
+    private static readonly string[] N_DEC = { "speedDecreaseFactor", "SpeedDecreaseFactor" };
+
+    // ---------------- Unity ----------------
     private void Awake()
     {
         AutoBindByPrefix();
+        if (Change_button) Change_button.onClick.AddListener(OnChangeClicked);
     }
 
     private void OnEnable()
     {
         var pm = PatientManager.Instance;
-        if (pm != null)
-        {
-            pm.OnSelectedPatientChanged += Render;
-            Render(pm.Current);
-        }
+        if (pm != null) pm.OnSelectedPatientChanged += Render;
+
         SetEditMode(false);
+        Render(PatientManager.Instance?.Current);
     }
 
     private void OnDisable()
@@ -51,155 +75,261 @@ public class PreferencesPanel : MonoBehaviour
         if (pm != null) pm.OnSelectedPatientChanged -= Render;
     }
 
-    // ------------ Binding Helpers ------------
+    // ---------------- Binding helpers ----------------
     [ContextMenu("AutoBind (by prefixes)")]
     private void AutoBindByPrefix()
     {
-        // Ищем ТОЛЬКО значения с префиксом VAL_
         var tmps = GetComponentsInChildren<TextMeshProUGUI>(true);
-        level1Text ??= tmps.FirstOrDefault(t => t.name.StartsWith("VAL_", System.StringComparison.OrdinalIgnoreCase) && t.name.ToLower().Contains("level1"));
-        level2Text ??= tmps.FirstOrDefault(t => t.name.StartsWith("VAL_", System.StringComparison.OrdinalIgnoreCase) && t.name.ToLower().Contains("level2"));
-        restText ??= tmps.FirstOrDefault(t => t.name.StartsWith("VAL_", System.StringComparison.OrdinalIgnoreCase) && t.name.ToLower().Contains("rest"));
-        chanceText ??= tmps.FirstOrDefault(t => t.name.StartsWith("VAL_", System.StringComparison.OrdinalIgnoreCase) && t.name.ToLower().Contains("chance"));
+        VAL_Level1 ??= tmps.FirstOrDefault(t => t.name.StartsWith("VAL_", System.StringComparison.OrdinalIgnoreCase) && t.name.ToLower().Contains("level1"));
+        VAL_Level2 ??= tmps.FirstOrDefault(t => t.name.StartsWith("VAL_", System.StringComparison.OrdinalIgnoreCase) && t.name.ToLower().Contains("level2"));
+        VAL_Rest ??= tmps.FirstOrDefault(t => t.name.StartsWith("VAL_", System.StringComparison.OrdinalIgnoreCase) && t.name.ToLower().Contains("rest"));
+        VAL_Chance ??= tmps.FirstOrDefault(t => t.name.StartsWith("VAL_", System.StringComparison.OrdinalIgnoreCase) && t.name.ToLower().Contains("chance"));
 
-        // Ищем инпуты с префиксом IF_
+        VAL_SpawnInterval ??= tmps.FirstOrDefault(t => t.name.StartsWith("VAL_", System.StringComparison.OrdinalIgnoreCase) && t.name.ToLower().Contains("spawn"));
+        VAL_BallSpeed ??= tmps.FirstOrDefault(t => t.name.StartsWith("VAL_", System.StringComparison.OrdinalIgnoreCase) && t.name.ToLower().Contains("ball"));
+        VAL_SpeedInc ??= tmps.FirstOrDefault(t => t.name.StartsWith("VAL_", System.StringComparison.OrdinalIgnoreCase) && (t.name.ToLower().Contains("inc") || t.name.ToLower().Contains("increase")));
+        VAL_SpeedDec ??= tmps.FirstOrDefault(t => t.name.StartsWith("VAL_", System.StringComparison.OrdinalIgnoreCase) && (t.name.ToLower().Contains("dec") || t.name.ToLower().Contains("decrease")));
+
         var inputs = GetComponentsInChildren<TMP_InputField>(true);
-        level1Input ??= inputs.FirstOrDefault(i => i.name.StartsWith("IF_", System.StringComparison.OrdinalIgnoreCase) && i.name.ToLower().Contains("level1"));
-        level2Input ??= inputs.FirstOrDefault(i => i.name.StartsWith("IF_", System.StringComparison.OrdinalIgnoreCase) && i.name.ToLower().Contains("level2"));
-        restInput ??= inputs.FirstOrDefault(i => i.name.StartsWith("IF_", System.StringComparison.OrdinalIgnoreCase) && i.name.ToLower().Contains("rest"));
-        chanceInput ??= inputs.FirstOrDefault(i => i.name.StartsWith("IF_", System.StringComparison.OrdinalIgnoreCase) && i.name.ToLower().Contains("chance"));
+        IF_Level1 ??= inputs.FirstOrDefault(i => i.name.StartsWith("IF_", System.StringComparison.OrdinalIgnoreCase) && i.name.ToLower().Contains("level1"));
+        IF_Level2 ??= inputs.FirstOrDefault(i => i.name.StartsWith("IF_", System.StringComparison.OrdinalIgnoreCase) && i.name.ToLower().Contains("level2"));
+        IF_Rest ??= inputs.FirstOrDefault(i => i.name.StartsWith("IF_", System.StringComparison.OrdinalIgnoreCase) && i.name.ToLower().Contains("rest"));
+        IF_Chance ??= inputs.FirstOrDefault(i => i.name.StartsWith("IF_", System.StringComparison.OrdinalIgnoreCase) && i.name.ToLower().Contains("chance"));
 
-        // Кнопка и её лейбл
-        changeButton ??= GetComponentsInChildren<Button>(true).FirstOrDefault(b => b.name.ToLower().Contains("change"));
-        if (!changeButtonLabel && changeButton)
-            changeButtonLabel = changeButton.GetComponentInChildren<TextMeshProUGUI>(true);
+        IF_SpawnInterval ??= inputs.FirstOrDefault(i => i.name.StartsWith("IF_", System.StringComparison.OrdinalIgnoreCase) && i.name.ToLower().Contains("spawn"));
+        IF_BallSpeed ??= inputs.FirstOrDefault(i => i.name.StartsWith("IF_", System.StringComparison.OrdinalIgnoreCase) && i.name.ToLower().Contains("ball"));
+        IF_SpeedInc ??= inputs.FirstOrDefault(i => i.name.StartsWith("IF_", System.StringComparison.OrdinalIgnoreCase) && (i.name.ToLower().Contains("inc") || i.name.ToLower().Contains("increase")));
+        IF_SpeedDec ??= inputs.FirstOrDefault(i => i.name.StartsWith("IF_", System.StringComparison.OrdinalIgnoreCase) && (i.name.ToLower().Contains("dec") || i.name.ToLower().Contains("decrease")));
+
+        Change_button ??= GetComponentsInChildren<Button>(true).FirstOrDefault(b => b.name.ToLower().Contains("change"));
+        if (!Change_buttonLabel && Change_button)
+            Change_buttonLabel = Change_button.GetComponentInChildren<TextMeshProUGUI>(true);
     }
 
-    // ------------ Public API ------------
+    // ---------------- Public API ----------------
     public void Render(Patient p)
     {
-        if (p == null) return;
+        if (p == null || p.settings == null) return;
+        var s = p.settings;
+        InvokeIfExists(s, "EnsureDefaults");
 
-        if (selectedPatientLabel)
-            selectedPatientLabel.text = $"selected: {p.displayName}";
+        if (selectedPatientLabel) selectedPatientLabel.text = $"selected: {p.displayName}";
 
-        if (level1Text) level1Text.text = p.settings.level1DurationSec + " s";
-        if (level2Text) level2Text.text = p.settings.level2DurationSec + " s";
-        if (restText) restText.text = p.settings.restTimeSec + " s";
-        if (chanceText) chanceText.text = p.settings.redChance.ToString("0.##", CultureInfo.InvariantCulture);
+        if (VAL_Level1) VAL_Level1.text = GetInt(s, N_L1, 180) + " s";
+        if (VAL_Level2) VAL_Level2.text = GetInt(s, N_L2, 120) + " s";
+        if (VAL_Rest) VAL_Rest.text = GetInt(s, N_REST, 60) + " s";
+        if (VAL_Chance) VAL_Chance.text = GetFloat(s, N_CH, 0.35f).ToString("0.##", INV);
+
+        if (VAL_SpawnInterval) VAL_SpawnInterval.text = GetFloat(s, N_SPA, 1.5f).ToString("0.##", INV) + " s";
+        if (VAL_BallSpeed) VAL_BallSpeed.text = GetFloat(s, N_SPD, 1.0f).ToString("0.##", INV);
+        if (VAL_SpeedInc) VAL_SpeedInc.text = "×" + GetFloat(s, N_INC, 1.1f).ToString("0.##", INV);
+        if (VAL_SpeedDec) VAL_SpeedDec.text = "×" + GetFloat(s, N_DEC, 0.6f).ToString("0.##", INV);
     }
 
-    // Повесьте на кнопку Change_button → OnClick
+    /// <summary>OnClick у Change_button</summary>
     public void OnChangeClicked()
     {
-        if (!isEditing)
+        var p = PatientManager.Instance?.Current;
+        var s = p?.settings;
+        if (s == null) return;
+
+        // решаем по факту: видны ли инпуты сейчас?
+        bool inputsVisible = IF_Level1 && IF_Level1.gameObject.activeSelf;
+
+        if (!inputsVisible)
         {
-            EnterEditModeClear();
+            // ВХОД В РЕДАКТИРОВАНИЕ
+            InvokeIfExists(s, "EnsureDefaults");
+            PrefillInputsFromSettings(s);
+            SetEditMode(true);
+            return;
         }
-        else
+
+        // СОХРАНЕНИЕ
+        if (TrySaveInputs(out string msg))
         {
-            if (TrySaveInputs())
-            {
-                SetEditMode(false);
-                Render(PatientManager.Instance?.Current);
-            }
+            Debug.Log($"[PreferencesPanel] {msg}");
+            SetEditMode(false);
+            Render(p);
         }
     }
 
-    // ------------ Internals ------------
-    private void EnterEditModeClear()
+    private void PrefillInputsFromSettings(object s)
     {
-        SetEditMode(true);
+        if (s == null) return;
 
-        if (level1Input) level1Input.text = "";
-        if (level2Input) level2Input.text = "";
-        if (restInput) restInput.text = "";
-        if (chanceInput) chanceInput.text = "";
+        IF_Level1.text = GetInt(s, N_L1, 180).ToString();
+        IF_Level2.text = GetInt(s, N_L2, 120).ToString();
+        IF_Rest.text = GetInt(s, N_REST, 60).ToString();
+        IF_Chance.text = GetFloat(s, N_CH, 0.35f).ToString(INV);
 
-        if (level1Input) level1Input.ActivateInputField();
+        IF_SpawnInterval.text = GetFloat(s, N_SPA, 1.5f).ToString(INV);
+        IF_BallSpeed.text = GetFloat(s, N_SPD, 1.0f).ToString(INV);
+        IF_SpeedInc.text = GetFloat(s, N_INC, 1.1f).ToString(INV);
+        IF_SpeedDec.text = GetFloat(s, N_DEC, 0.6f).ToString(INV);
     }
 
-    private void SetEditMode(bool edit)
+
+    // ---------------- Internals ----------------
+    private void SetEditMode(bool on)
     {
-        isEditing = edit;
+        editMode = on;
 
-        // переключаем ТОЛЬКО значения/инпуты (левые лейблы не трогаем)
-        SetActiveSafe(level1Text, !edit);
-        SetActiveSafe(level2Text, !edit);
-        SetActiveSafe(restText, !edit);
-        SetActiveSafe(chanceText, !edit);
+        // View labels
+        SetActiveSafe(VAL_Level1, !on);
+        SetActiveSafe(VAL_Level2, !on);
+        SetActiveSafe(VAL_Rest, !on);
+        SetActiveSafe(VAL_Chance, !on);
+        SetActiveSafe(VAL_SpawnInterval, !on);
+        SetActiveSafe(VAL_BallSpeed, !on);
+        SetActiveSafe(VAL_SpeedInc, !on);
+        SetActiveSafe(VAL_SpeedDec, !on);
 
-        SetActiveSafe(level1Input, edit);
-        SetActiveSafe(level2Input, edit);
-        SetActiveSafe(restInput, edit);
-        SetActiveSafe(chanceInput, edit);
+        // Inputs
+        SetActiveSafe(IF_Level1, on);
+        SetActiveSafe(IF_Level2, on);
+        SetActiveSafe(IF_Rest, on);
+        SetActiveSafe(IF_Chance, on);
+        SetActiveSafe(IF_SpawnInterval, on);
+        SetActiveSafe(IF_BallSpeed, on);
+        SetActiveSafe(IF_SpeedInc, on);
+        SetActiveSafe(IF_SpeedDec, on);
 
-        if (!changeButtonLabel && changeButton)
-            changeButtonLabel = changeButton.GetComponentInChildren<TextMeshProUGUI>(true);
-        if (changeButtonLabel)
-            changeButtonLabel.text = edit ? "Save" : "Change";
+        if (Change_buttonLabel) Change_buttonLabel.text = on ? "Save" : "Change";
     }
 
-    private bool TrySaveInputs()
+    private bool TrySaveInputs(out string message)
     {
-        var pm = PatientManager.Instance;
-        var p = pm != null ? pm.Current : null;
-        if (p == null) return false;
+        message = "";
+        var p = PatientManager.Instance?.Current;
+        var s = p?.settings;
+        if (s == null) { message = "No selected patient/settings"; return false; }
 
-        int l1 = p.settings.level1DurationSec;
-        int l2 = p.settings.level2DurationSec;
-        int rt = p.settings.restTimeSec;
-        float ch = p.settings.redChance;
-
-        var inv = CultureInfo.InvariantCulture;
-        var cur = CultureInfo.CurrentCulture;
-
-        if (level1Input && !string.IsNullOrWhiteSpace(level1Input.text))
+        // ints
+        if (IF_Level1 && !string.IsNullOrWhiteSpace(IF_Level1.text))
         {
-            if (!int.TryParse(level1Input.text.Trim(), System.Globalization.NumberStyles.Integer, inv, out l1) &&
-                !int.TryParse(level1Input.text.Trim(), System.Globalization.NumberStyles.Integer, cur, out l1))
-            { Debug.LogWarning("Level 1: введите целое число секунд"); return false; }
-            if (l1 <= 0) { Debug.LogWarning("Level 1 должно быть > 0"); return false; }
+            if (!int.TryParse(IF_Level1.text.Trim(), out var v) || v <= 0) { message = "Level 1 must be integer > 0"; return false; }
+            SetInt(s, N_L1, Mathf.Clamp(v, 5, 3600));
+        }
+        if (IF_Level2 && !string.IsNullOrWhiteSpace(IF_Level2.text))
+        {
+            if (!int.TryParse(IF_Level2.text.Trim(), out var v) || v <= 0) { message = "Level 2 must be integer > 0"; return false; }
+            SetInt(s, N_L2, Mathf.Clamp(v, 5, 3600));
+        }
+        if (IF_Rest && !string.IsNullOrWhiteSpace(IF_Rest.text))
+        {
+            if (!int.TryParse(IF_Rest.text.Trim(), out var v) || v < 0) { message = "Rest must be integer ≥ 0"; return false; }
+            SetInt(s, N_REST, Mathf.Clamp(v, 0, 600));
         }
 
-        if (level2Input && !string.IsNullOrWhiteSpace(level2Input.text))
+        // floats
+        if (IF_Chance && !string.IsNullOrWhiteSpace(IF_Chance.text))
         {
-            if (!int.TryParse(level2Input.text.Trim(), System.Globalization.NumberStyles.Integer, inv, out l2) &&
-                !int.TryParse(level2Input.text.Trim(), System.Globalization.NumberStyles.Integer, cur, out l2))
-            { Debug.LogWarning("Level 2: введите целое число секунд"); return false; }
-            if (l2 <= 0) { Debug.LogWarning("Level 2 должно быть > 0"); return false; }
+            var t = IF_Chance.text.Trim().Replace(',', '.');
+            if (!float.TryParse(t, NumberStyles.Float, INV, out var v)) { message = "Chance must be 0..1"; return false; }
+            SetFloat(s, N_CH, Mathf.Clamp01(v));
         }
 
-        if (restInput && !string.IsNullOrWhiteSpace(restInput.text))
+        if (IF_SpawnInterval && !string.IsNullOrWhiteSpace(IF_SpawnInterval.text))
         {
-            if (!int.TryParse(restInput.text.Trim(), System.Globalization.NumberStyles.Integer, inv, out rt) &&
-                !int.TryParse(restInput.text.Trim(), System.Globalization.NumberStyles.Integer, cur, out rt))
-            { Debug.LogWarning("Rest time: введите целое число секунд"); return false; }
-            if (rt < 0) { Debug.LogWarning("Rest time не может быть отрицательным"); return false; }
+            var t = IF_SpawnInterval.text.Trim().Replace(',', '.');
+            if (!float.TryParse(t, NumberStyles.Float, INV, out var v)) { message = "Spawn interval parse error"; return false; }
+            SetFloat(s, N_SPA, Mathf.Clamp(v, 0.05f, 10f));
         }
 
-        if (chanceInput && !string.IsNullOrWhiteSpace(chanceInput.text))
+        if (IF_BallSpeed && !string.IsNullOrWhiteSpace(IF_BallSpeed.text))
         {
-            var txt = chanceInput.text.Trim().Replace(',', '.');
-            if (!float.TryParse(txt, System.Globalization.NumberStyles.Float, CultureInfo.InvariantCulture, out ch))
-            { Debug.LogWarning("Red chance: введите число 0..1"); return false; }
-            ch = Mathf.Clamp01(ch);
+            var t = IF_BallSpeed.text.Trim().Replace(',', '.');
+            if (!float.TryParse(t, NumberStyles.Float, INV, out var v)) { message = "Ball speed parse error"; return false; }
+            SetFloat(s, N_SPD, Mathf.Clamp(v, 0.1f, 50f));
         }
 
-        p.settings.level1DurationSec = l1;
-        p.settings.level2DurationSec = l2;
-        p.settings.restTimeSec = rt;
-        p.settings.redChance = ch;
+        if (IF_SpeedInc && !string.IsNullOrWhiteSpace(IF_SpeedInc.text))
+        {
+            var t = IF_SpeedInc.text.Trim().Replace(',', '.');
+            if (!float.TryParse(t, NumberStyles.Float, INV, out var v)) { message = "Increase factor parse error"; return false; }
+            SetFloat(s, N_INC, Mathf.Clamp(v, 0.5f, 3f));
+        }
 
-        pm.SelectByIndex(pm.selectedIndex);
+        if (IF_SpeedDec && !string.IsNullOrWhiteSpace(IF_SpeedDec.text))
+        {
+            var t = IF_SpeedDec.text.Trim().Replace(',', '.');
+            if (!float.TryParse(t, NumberStyles.Float, INV, out var v)) { message = "Decrease factor parse error"; return false; }
+            SetFloat(s, N_DEC, Mathf.Clamp(v, 0.1f, 1f));
+        }
+
+        message = $"Saved: L1={GetInt(s, N_L1, 0)}, L2={GetInt(s, N_L2, 0)}, Rest={GetInt(s, N_REST, 0)}, Chance={GetFloat(s, N_CH, 0):0.##}, " +
+                  $"Spawn={GetFloat(s, N_SPA, 0):0.##}, Speed={GetFloat(s, N_SPD, 0):0.##}, Inc={GetFloat(s, N_INC, 0):0.##}, Dec={GetFloat(s, N_DEC, 0):0.##}";
         return true;
     }
 
-    // >>> Здесь главное изменение: уточняем тип
-    private static void SetActiveSafe(UnityEngine.Component c, bool active)
+    private static void SetActiveSafe(Component c, bool active)
     {
         if (!c) return;
         var go = c.gameObject;
         if (go.activeSelf != active) go.SetActive(active);
+    }
+
+    // ---------------- Reflection helpers ----------------
+    private static BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+    private static void InvokeIfExists(object obj, string methodName)
+    {
+        if (obj == null) return;
+        var m = obj.GetType().GetMethod(methodName, BF, null, System.Type.EmptyTypes, null);
+        if (m != null) { try { m.Invoke(obj, null); } catch { } }
+    }
+
+    private static bool TryGetMember(object o, string name, out object value)
+    {
+        value = null;
+        if (o == null) return false;
+        var t = o.GetType();
+
+        var f = t.GetField(name, BF);
+        if (f != null) { value = f.GetValue(o); return true; }
+
+        var p = t.GetProperty(name, BF);
+        if (p != null && p.CanRead) { value = p.GetValue(o, null); return true; }
+
+        return false;
+    }
+
+    private static bool TrySetMember(object o, string name, object v)
+    {
+        if (o == null) return false;
+        var t = o.GetType();
+
+        var f = t.GetField(name, BF);
+        if (f != null) { try { f.SetValue(o, System.Convert.ChangeType(v, f.FieldType, INV)); return true; } catch { } }
+
+        var p = t.GetProperty(name, BF);
+        if (p != null && p.CanWrite) { try { p.SetValue(o, System.Convert.ChangeType(v, p.PropertyType, INV), null); return true; } catch { } }
+
+        return false;
+    }
+
+    private static int GetInt(object s, string[] names, int defVal)
+    {
+        foreach (var n in names)
+            if (TryGetMember(s, n, out var v) && v != null && int.TryParse(v.ToString(), out var iv)) return iv;
+        return defVal;
+    }
+
+    private static float GetFloat(object s, string[] names, float defVal)
+    {
+        foreach (var n in names)
+            if (TryGetMember(s, n, out var v) && v != null && float.TryParse(v.ToString(), NumberStyles.Float, INV, out var fv)) return fv;
+        return defVal;
+    }
+
+    private static void SetInt(object s, string[] names, int value)
+    {
+        foreach (var n in names) if (TrySetMember(s, n, value)) return;
+    }
+
+    private static void SetFloat(object s, string[] names, float value)
+    {
+        foreach (var n in names) if (TrySetMember(s, n, value)) return;
     }
 }

@@ -56,8 +56,14 @@ public class PatientManager : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);        // уничтожаем дубликаты при загрузке другой сцены
+            return;
+        }
         Instance = this;
+        DontDestroyOnLoad(gameObject);  // переносим менеджер между сценами
+    
         // DontDestroyOnLoad(gameObject); // включите, если нужен между сценами
 
         // Пробуем загрузить сохранение; если файла нет — создаём дефолт и сохраняем

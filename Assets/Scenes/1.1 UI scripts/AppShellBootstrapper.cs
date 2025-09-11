@@ -4,7 +4,7 @@ using TMPro;
 using UnityEngine.SceneManagement;
 using System.Linq;
 using System.Collections.Generic;
-using System.Globalization;   
+using System.Globalization;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -133,18 +133,19 @@ public void RebuildEditorPreview()
         if (tStopBetween) tStopBetween.isOn = s.StopBetweenLevels;
     }
 
-    PatientSettings ReadSettingsFromUI()
+    private PatientSettings ReadSettingsFromUI()
     {
         return new PatientSettings
         {
-            Level1Duration = UIPrimitives.ParseOrDefault(fL1, 60f),
-            Level2Duration = UIPrimitives.ParseOrDefault(fL2, 40f),
-            RestSeconds = UIPrimitives.ParseOrDefault(fRest, 10f),
+            Level1Duration = Mathf.RoundToInt(UIPrimitives.ParseOrDefault(fL1, 60f)),
+            Level2Duration = Mathf.RoundToInt(UIPrimitives.ParseOrDefault(fL2, 40f)),
+            RestSeconds = Mathf.RoundToInt(UIPrimitives.ParseOrDefault(fRest, 10f)),
             RedChance = UIPrimitives.ParseOrDefault(fRedChance, 0.35f),
             StopKinectOnGameEnd = tStopKinect && tStopKinect.isOn,
             StopBetweenLevels = tStopBetween && tStopBetween.isOn
         };
     }
+
 
     void OnPatientSelected(int idx, System.Collections.Generic.List<(int id, string name)> map)
     {
@@ -638,9 +639,10 @@ public void RebuildEditorPreview()
         }
 
         // Параллельно заполним AppState.Config (как у тебя уже было)
-        AppState.Config.Level1Duration = UIPrimitives.ParseOrDefault(fL1, 60f);
-        AppState.Config.Level2Duration = UIPrimitives.ParseOrDefault(fL2, 40f);
-        AppState.Config.RestSeconds = UIPrimitives.ParseOrDefault(fRest, 10f);
+        // >>> Исправлено: приводим float -> int через Mathf.RoundToInt
+        AppState.Config.Level1Duration = Mathf.RoundToInt(UIPrimitives.ParseOrDefault(fL1, 60f));
+        AppState.Config.Level2Duration = Mathf.RoundToInt(UIPrimitives.ParseOrDefault(fL2, 40f));
+        AppState.Config.RestSeconds = Mathf.RoundToInt(UIPrimitives.ParseOrDefault(fRest, 10f));
         AppState.Config.RedChance = UIPrimitives.ParseOrDefault(fRedChance, 0.35f);
         AppState.Config.StopKinectOnGameEnd = tStopKinect && tStopKinect.isOn;
         AppState.Config.StopBetweenLevels = tStopBetween && tStopBetween.isOn;
