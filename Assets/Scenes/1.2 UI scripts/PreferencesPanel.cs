@@ -57,17 +57,19 @@ public class PreferencesPanel : MonoBehaviour
     private void Awake()
     {
         AutoBindByPrefix();
-        if (Change_button) Change_button.onClick.AddListener(OnChangeClicked);
     }
 
+    private bool _wired;
     private void OnEnable()
     {
-        var pm = PatientManager.Instance;
-        if (pm != null) pm.OnSelectedPatientChanged += Render;
-
-        SetEditMode(false);
-        Render(PatientManager.Instance?.Current);
+        AutoBindByPrefix();
+        if (Change_button && !_wired)
+        {
+            Change_button.onClick.AddListener(OnChangeClicked);
+            _wired = true;
+        }
     }
+
 
     private void OnDisable()
     {
@@ -126,56 +128,96 @@ public class PreferencesPanel : MonoBehaviour
         if (VAL_SpeedDec) VAL_SpeedDec.text = "×" + GetFloat(s, N_DEC, 0.6f).ToString("0.##", INV);
     }
 
-    /// <summary>OnClick у Change_button</summary>
+    // === Сервис: гарантируем, что ссылки на IF_/VAL_ подхвачены, даже если объекты были Inactive
+    // --- Жёсткий бинд: подтянуть ссылки даже у неактивных объектов
+    private void ForceBindIfNeeded()
+    {
+        AutoBindByPrefix(); // он ищет и в Inactive
+    }
+
+    // --- Включение / выключение видимости с логом
+    private void ToggleEditUI(bool showInputs)
+    {
+        ForceBindIfNeeded();
+
+        // Read-only значения
+        SetActiveSafe(VAL_Level1, !showInputs);
+        SetActiveSafe(VAL_Level2, !showInputs);
+        SetActiveSafe(VAL_Rest, !showInputs);
+        SetActiveSafe(VAL_Chance, !showInputs);
+        SetActiveSafe(VAL_SpawnInterval, !showInputs);
+        SetActiveSafe(VAL_BallSpeed, !showInputs);
+        SetActiveSafe(VAL_SpeedInc, !showInputs);
+        SetActiveSafe(VAL_SpeedDec, !showInputs);
+
+        // Инпуты
+        SetActiveSafe(IF_Level1, showInputs);
+        SetActiveSafe(IF_Level2, showInputs);
+        SetActiveSafe(IF_Rest, showInputs);
+        SetActiveSafe(IF_Chance, showInputs);
+        SetActiveSafe(IF_SpawnInterval, showInputs);
+        SetActiveSafe(IF_BallSpeed, showInputs);
+        SetActiveSafe(IF_SpeedInc, showInputs);
+        SetActiveSafe(IF_SpeedDec, showInputs);
+
+        if (Change_buttonLabel) Change_buttonLabel.text = showInputs ? "Save" : "Change";
+
+        editMode = showInputs;
+        Debug.Log($"[PreferencesPanel] UI -> {(showInputs ? "EDIT" : "VIEW")} mode");
+    }
+
+    // --- КНОПКА Change/Save
+    private int _lastClickFrame = -1;
+
     public void OnChangeClicked()
     {
+        if (Time.frameCount == _lastClickFrame) return; // анти-дубль
+        _lastClickFrame = Time.frameCount;
+
+        // дальше ваш текущий код:
         var p = PatientManager.Instance?.Current;
         var s = p?.settings;
         if (s == null) return;
 
-        // решаем по факту: видны ли инпуты сейчас?
-        bool inputsVisible = IF_Level1 && IF_Level1.gameObject.activeSelf;
-
-        if (!inputsVisible)
+        if (!editMode)
         {
-            // ВХОД В РЕДАКТИРОВАНИЕ
             InvokeIfExists(s, "EnsureDefaults");
             PrefillInputsFromSettings(s);
-            SetEditMode(true);
+            ToggleEditUI(true);
             return;
         }
 
-        // СОХРАНЕНИЕ
-        if (TrySaveInputs(out string msg))
+        if (TrySaveInputs(out var msg))
         {
             Debug.Log($"[PreferencesPanel] {msg}");
-            SetEditMode(false);
+            ToggleEditUI(false);
             Render(p);
         }
     }
 
+
+    // --- Заполнение инпутов текущими значениями (с проверками)
     private void PrefillInputsFromSettings(object s)
     {
         if (s == null) return;
 
-        IF_Level1.text = GetInt(s, N_L1, 180).ToString();
-        IF_Level2.text = GetInt(s, N_L2, 120).ToString();
-        IF_Rest.text = GetInt(s, N_REST, 60).ToString();
-        IF_Chance.text = GetFloat(s, N_CH, 0.35f).ToString(INV);
+        if (IF_Level1) IF_Level1.text = GetInt(s, N_L1, 180).ToString();
+        if (IF_Level2) IF_Level2.text = GetInt(s, N_L2, 120).ToString();
+        if (IF_Rest) IF_Rest.text = GetInt(s, N_REST, 60).ToString();
+        if (IF_Chance) IF_Chance.text = GetFloat(s, N_CH, 0.35f).ToString(INV);
 
-        IF_SpawnInterval.text = GetFloat(s, N_SPA, 1.5f).ToString(INV);
-        IF_BallSpeed.text = GetFloat(s, N_SPD, 1.0f).ToString(INV);
-        IF_SpeedInc.text = GetFloat(s, N_INC, 1.1f).ToString(INV);
-        IF_SpeedDec.text = GetFloat(s, N_DEC, 0.6f).ToString(INV);
+        if (IF_SpawnInterval) IF_SpawnInterval.text = GetFloat(s, N_SPA, 1.5f).ToString(INV);
+        if (IF_BallSpeed) IF_BallSpeed.text = GetFloat(s, N_SPD, 1.0f).ToString(INV);
+        if (IF_SpeedInc) IF_SpeedInc.text = GetFloat(s, N_INC, 1.1f).ToString(INV);
+        if (IF_SpeedDec) IF_SpeedDec.text = GetFloat(s, N_DEC, 0.6f).ToString(INV);
     }
 
-
-    // ---------------- Internals ----------------
+    // === Переключение режимов: показываем IF_*, скрываем VAL_* и меняем текст кнопки
     private void SetEditMode(bool on)
     {
         editMode = on;
 
-        // View labels
+        // Read-only
         SetActiveSafe(VAL_Level1, !on);
         SetActiveSafe(VAL_Level2, !on);
         SetActiveSafe(VAL_Rest, !on);
