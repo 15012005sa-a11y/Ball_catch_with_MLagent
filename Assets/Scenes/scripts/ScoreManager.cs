@@ -5,6 +5,7 @@ using System.Reflection;
 using UnityEngine;
 using TMPro;
 using UnityEngine.Events;
+using UnityEngine.UI;
 
 [RequireComponent(typeof(AudioSource))]
 public class ScoreManager : MonoBehaviour
@@ -119,6 +120,22 @@ public class ScoreManager : MonoBehaviour
         // Подтянуть длительности из настроек выбранного пациента при старте
         var settings = PatientManager.Instance?.Current?.settings;
         if (settings != null) ApplySettingsFromPatient(settings);
+
+        WireStartButton();   // авто-привязка Start кнопки
+        Debug.Log("[ScoreManager] Ready. Waiting for StartSession...");
+
+    }
+
+    private void WireStartButton()
+    {
+        if (startButton == null) return;
+        var btn = startButton.GetComponent<Button>();
+        if (btn == null) return;
+
+        // убрать старые и повесить наш обработчик
+        btn.onClick.RemoveListener(StartSession);
+        btn.onClick.AddListener(StartSession);
+        Debug.Log("[ScoreManager] Start button wired to StartSession()");
     }
 
     private void Update()
@@ -137,10 +154,11 @@ public class ScoreManager : MonoBehaviour
     /// <summary>Привязать к кнопке Start Game → OnClick()</summary>
     public void StartSession()
     {
-        // Первый запуск обнуляет счёт, последующие уровни — нет
+        Debug.Log("[ScoreManager] StartSession() called");
         StartSessionInternal(resetScore: resetScoreOnStart);
         resetScoreOnStart = false;
     }
+
 
     /// <summary>Запуск следующего уровня БЕЗ обнуления счёта.</summary>
     public void StartSessionKeepScore()
@@ -172,6 +190,8 @@ public class ScoreManager : MonoBehaviour
 
     private void StartSessionInternal(bool resetScore)
     {
+
+        Time.timeScale = 1f;  // на случай, если где-то было 0
         uiPanel?.SetActive(false);
         startButton?.SetActive(false);
 
@@ -184,6 +204,7 @@ public class ScoreManager : MonoBehaviour
         // Выставить таймер по текущему уровню
         timer = (currentLevel == 1) ? level1Duration : level2Duration;
         sessionDuration = timer;           // чтобы метрики корректно считались
+        Debug.Log($"[ScoreManager] Session start → level={currentLevel}, timer={(currentLevel == 1 ? level1Duration : level2Duration)}s");
         sessionRunning = true;
 
         accuracyList.Clear();
