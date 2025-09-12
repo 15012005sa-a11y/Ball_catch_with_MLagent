@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using UnityEngine;
 using TMPro;
 using UnityEngine.Events;
@@ -11,10 +12,10 @@ public class ScoreManager : MonoBehaviour
     public UnityEvent OnSessionFinished;
     public static ScoreManager Instance { get; private set; }
 
-    public event System.Action OnBallCaught;   // оставьте как было
-    public event System.Action OnGoodCatch;    // только правильный шар
-    public event System.Action OnRedTouched;   // красный шар (ошибка)
-    public event System.Action OnMissed;     // НОВОЕ: промах синим шаром
+    public event System.Action OnBallCaught;   // совместимость со старым кодом
+    public event System.Action OnGoodCatch;    // «правильная» ловля
+    public event System.Action OnRedTouched;   // касание красного шара
+    public event System.Action OnMissed;       // промах синим шаром
 
     public bool stopKinectOnGameEnd = false;
 
@@ -27,7 +28,7 @@ public class ScoreManager : MonoBehaviour
     public TMP_Text timerText;
 
     [Header("Session Settings")]
-    [Tooltip("Длительность игрового таймера в секундах")]
+    [Tooltip("Базовая длительность таймера в секундах (будет заменена длительностью уровня)")]
     public float sessionDuration = 20f;
 
     [Header("Dependencies")]
@@ -59,7 +60,15 @@ public class ScoreManager : MonoBehaviour
     [HideInInspector] public bool showGraphButtonOnMenu = false;
     [HideInInspector] public bool showStartButtonOnMenu = true;
 
-    // Метрики за сессию
+    // ---------- НОВОЕ: длительности уровней из PatientSettings ----------
+    [Header("Level durations (from PatientSettings)")]
+    [SerializeField] private int level1Duration = 180; // сек
+    [SerializeField] private int level2Duration = 120; // сек
+    [SerializeField] private int restSeconds = 60;   // сек (на будущее)
+    [Tooltip("Текущий уровень (1 или 2)")]
+    public int currentLevel = 1;
+
+    // ---------- Метрики за сессию ----------
     private readonly List<float> accuracyList = new();
     private readonly List<float> reactionTimes = new();
 
@@ -106,6 +115,10 @@ public class ScoreManager : MonoBehaviour
         timer = sessionDuration;
         currentScore = 0;
         UpdateUI();
+
+        // Подтянуть длительности из настроек выбранного пациента при старте
+        var settings = PatientManager.Instance?.Current?.settings;
+        if (settings != null) ApplySettingsFromPatient(settings);
     }
 
     private void Update()
@@ -135,9 +148,25 @@ public class ScoreManager : MonoBehaviour
         StartSessionInternal(resetScore: false);
     }
 
+    /// <summary>Установить текущий уровень (1 или 2).</summary>
+    public void SetLevel(int level)
+    {
+        currentLevel = Mathf.Clamp(level, 1, 2);
+    }
+
+    /// <summary>Подтянуть длительности уровней из PatientSettings.</summary>
+    public void ApplySettingsFromPatient(object settings)
+    {
+        // читаем как поля или свойства (названия в двух вариантах на случай старых имён)
+        level1Duration = Mathf.Clamp(GetInt(settings, new[] { "Level1Duration", "level1DurationSec" }, level1Duration), 5, 3600);
+        level2Duration = Mathf.Clamp(GetInt(settings, new[] { "Level2Duration", "level2DurationSec" }, level2Duration), 5, 3600);
+        restSeconds = Mathf.Clamp(GetInt(settings, new[] { "RestSeconds", "restTimeSec" }, restSeconds), 0, 600);
+
+        Debug.Log($"[ScoreManager] Durations from settings: L1={level1Duration}s, L2={level2Duration}s, Rest={restSeconds}s");
+    }
+
     public void RegisterMiss()
     {
-        // здесь можно вести статистику промахов, если нужно
         OnMissed?.Invoke();
     }
 
@@ -146,8 +175,15 @@ public class ScoreManager : MonoBehaviour
         uiPanel?.SetActive(false);
         startButton?.SetActive(false);
 
+        // На всякий случай ещё раз подтянуть настройки выбранного пациента
+        var settings = PatientManager.Instance?.Current?.settings;
+        if (settings != null) ApplySettingsFromPatient(settings);
+
         if (resetScore) currentScore = 0;
-        timer = sessionDuration;
+
+        // Выставить таймер по текущему уровню
+        timer = (currentLevel == 1) ? level1Duration : level2Duration;
+        sessionDuration = timer;           // чтобы метрики корректно считались
         sessionRunning = true;
 
         accuracyList.Clear();
@@ -181,16 +217,13 @@ public class ScoreManager : MonoBehaviour
 
         UpdateUI();
 
-        OnBallCaught?.Invoke();   // для совместимости со старым кодом
-        OnGoodCatch?.Invoke();    // НОВОЕ: только «правильная ловля»
+        OnBallCaught?.Invoke();   // совместимость
+        OnGoodCatch?.Invoke();    // правильная ловля
 
         if (popSound != null) audioSource.PlayOneShot(popSound);
     }
 
-
-    /// <summary>
-    /// НОВОЕ: вызвать при касании КРАСНОГО шара — уменьшает счёт на redPenalty.
-    /// </summary>
+    /// <summary>Вызвать при касании КРАСНОГО шара — уменьшает счёт на redPenalty.</summary>
     public void RedBallTouched()
     {
         if (!sessionRunning) return;
@@ -200,8 +233,7 @@ public class ScoreManager : MonoBehaviour
 
         UpdateUI();
 
-        // БЫЛО: OnBallCaught?.Invoke();  // убрать, чтобы красные не считались «ловлей»
-        OnRedTouched?.Invoke();            // НОВОЕ: отдельный сигнал ошибки
+        OnRedTouched?.Invoke();
 
         if (popSound != null) audioSource.PlayOneShot(popSound);
     }
@@ -209,7 +241,7 @@ public class ScoreManager : MonoBehaviour
     /// <summary>Запоминает время спавна шара с данным ID.</summary>
     public void RecordSpawn(int ballId) => spawnTimes[ballId] = Time.time;
 
-    /// <summary>Обёртка RegisterSpawn для совместимости</summary>
+    /// <summary>Обёртка для совместимости.</summary>
     public void RegisterSpawn(int ballId) => RecordSpawn(ballId);
 
     /// <summary>Записывает точность (0…1) по расстоянию.</summary>
@@ -236,6 +268,7 @@ public class ScoreManager : MonoBehaviour
     private void EndSession()
     {
         sessionRunning = false;
+
         if (ballSpawner != null)
             ballSpawner.StopSpawning();
 
@@ -297,8 +330,6 @@ public class ScoreManager : MonoBehaviour
         }
 
         OnSessionFinished?.Invoke();
-        uiPanel?.SetActive(true);
-        uiPanel?.SetActive(true);
 
         if (startButton) startButton.SetActive(showStartButtonOnMenu);
         if (graphButton) graphButton.SetActive(showGraphButtonOnMenu);
@@ -312,5 +343,29 @@ public class ScoreManager : MonoBehaviour
             bestScoreText.text = $"Best Score: {PlayerPrefs.GetInt("BestScore", 0)}";
         if (timerText != null)
             timerText.text = $"Time: {Mathf.Ceil(timer)}s";
+    }
+
+    // ---------- Reflection helper ----------
+    private static readonly BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+    private static int GetInt(object obj, string[] names, int defVal)
+    {
+        if (obj == null) return defVal;
+
+        foreach (var n in names)
+        {
+            var f = obj.GetType().GetField(n, BF);
+            if (f != null)
+            {
+                try { return Convert.ToInt32(f.GetValue(obj)); }
+                catch { }
+            }
+            var p = obj.GetType().GetProperty(n, BF);
+            if (p != null && p.CanRead)
+            {
+                try { return Convert.ToInt32(p.GetValue(obj, null)); }
+                catch { }
+            }
+        }
+        return defVal;
     }
 }
