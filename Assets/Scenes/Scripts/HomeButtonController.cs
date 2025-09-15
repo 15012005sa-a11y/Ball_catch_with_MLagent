@@ -74,11 +74,24 @@ public class HomeButtonController : MonoBehaviour
 
     public void GoHome()
     {
-        // Здесь можно выключить трекинг/аудио при возврате
-        // FindObjectOfType<KinectManager>()?.StopKinect();
+        if (!enabled) return;               // защита от двойного клика
+        enabled = false;
 
-        SceneManager.LoadScene(appShellSceneName, LoadSceneMode.Single);
+        // На всякий случай сбросить возможную паузу
+        Time.timeScale = 1f;
+
+        // Остановить игровой процесс перед уходом
+        try { levelDirector?.StopAllCoroutines(); } catch { }
+        FindObjectOfType<BallSpawnerBallCatch>()?.StopSpawning();
+        FindObjectOfType<MotionLogger>()?.StopLogging("ReturnHome");
+
+        // Если у вас есть персистентные singletons (DontDestroyOnLoad) и
+        // в AppShell они не нужны — можно уничтожить:
+        // if (ScoreManager.Instance) Destroy(ScoreManager.Instance.gameObject);
+
+        UnityEngine.SceneManagement.SceneManager.LoadScene(appShellSceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
     }
+
 
     // На случай, если не хотите ссылку на LevelDirector — можно повесить эти методы на UnityEvent в UI
     public void OnGameStartedHandler() => Hide();

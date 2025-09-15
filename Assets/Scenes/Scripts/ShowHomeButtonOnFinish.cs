@@ -1,56 +1,70 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
-/// Показывает кнопку HomeButton, когда LevelDirector завершил ВСЕ уровни.
-/// Безопасно работает поверх любых других контроллеров, принудительно включает
-/// GameObject и CanvasGroup, поднимает объект наверх и даёт подробные логи.
+/// Показывает HomeButton ТОЛЬКО после окончательного завершения сессии
+/// (т.е. после 2-го уровня, потому что после 1-го ScoreManager ставит
+/// suppressMenuOnEndOnce = true, и мы пропускаем показ).
+/// Работает напрямую от ScoreManager.OnSessionFinished, даже если LevelDirector
+/// не прислал свой OnGameFinished.
 /// </summary>
-[DefaultExecutionOrder(100)]
-public class ShowHomeButtonOnFinish : MonoBehaviour
+[DefaultExecutionOrder(120)]
+public class HomeButtonAfterFinalSession : MonoBehaviour
 {
     [Header("Refs")]
-    public LevelDirector levelDirector;       // перетащите ваш LevelDirector (из сцены)
-    public CanvasGroup homeButtonGroup;       // CanvasGroup на объекте HomeButton
-    public GameObject homeButtonObject;       // сам GameObject HomeButton (если оставить пустым — возьмём из homeButtonGroup)
+    public ScoreManager score;               // перетащите ScoreManager из сцены
+    public CanvasGroup homeButtonGroup;      // CanvasGroup на объекте HomeButton
+    public GameObject homeButtonObject;      // сам HomeButton (если пусто — возьмём из CanvasGroup)
 
-    [Header("Behaviour")]
-    public bool hideAtStart = true;           // скрыть кнопку при старте сцены
-    public bool bringToFront = true;          // переместить в конец sibling-ов (поверх всего)
+    [Header("Behaviour")] public bool hideAtStart = true; public bool bringToFront = true;
 
     private void Reset()
     {
-        if (!levelDirector) levelDirector = FindObjectOfType<LevelDirector>(true);
+        if (!score) score = FindObjectOfType<ScoreManager>(true);
         if (!homeButtonGroup) homeButtonGroup = GetComponent<CanvasGroup>();
         if (!homeButtonObject && homeButtonGroup) homeButtonObject = homeButtonGroup.gameObject;
     }
 
     private void Awake()
     {
-        if (!levelDirector) levelDirector = FindObjectOfType<LevelDirector>(true);
+        if (!score) score = FindObjectOfType<ScoreManager>(true);
         if (!homeButtonGroup) homeButtonGroup = GetComponent<CanvasGroup>();
         if (!homeButtonObject && homeButtonGroup) homeButtonObject = homeButtonGroup.gameObject;
     }
 
     private void OnEnable()
     {
-        if (!levelDirector) levelDirector = FindObjectOfType<LevelDirector>(true);
-        if (levelDirector != null) levelDirector.OnGameFinished += HandleFinished;
-        else Debug.LogWarning("[ShowHomeButtonOnFinish] LevelDirector not found.");
+        if (!score) score = FindObjectOfType<ScoreManager>(true);
+        if (score) score.OnSessionFinished.AddListener(OnSessionFinished);
+        else Debug.LogWarning("[HomeButtonAfterFinalSession] ScoreManager not found.");
 
         if (hideAtStart) Hide();
     }
 
     private void OnDisable()
     {
-        if (levelDirector != null) levelDirector.OnGameFinished -= HandleFinished;
+        if (score) score.OnSessionFinished.RemoveListener(OnSessionFinished);
     }
 
-    private void HandleFinished()
+    private void OnSessionFinished()
     {
-        Debug.Log("[ShowHomeButtonOnFinish] Game finished → showing HomeButton");
-        Show();
+        // ждём кадр, чтобы ScoreManager успел сбросить suppressMenuOnEndOnce в false
+        StartCoroutine(ShowIfFinal());
+    }
+
+    private IEnumerator ShowIfFinal()
+    {
+        yield return null; // один кадр
+        if (score != null && !score.suppressMenuOnEndOnce)
+        {
+            Show();
+        }
+        else
+        {
+            Debug.Log("[HomeButtonAfterFinalSession] Final not reached yet (between levels)");
+        }
     }
 
     public void Show()
@@ -58,15 +72,13 @@ public class ShowHomeButtonOnFinish : MonoBehaviour
         var go = homeButtonObject ? homeButtonObject : (homeButtonGroup ? homeButtonGroup.gameObject : null);
         if (!go)
         {
-            Debug.LogWarning("[ShowHomeButtonOnFinish] HomeButton reference is not set.");
+            Debug.LogWarning("[HomeButtonAfterFinalSession] HomeButton reference is not set.");
             return;
         }
 
-        // Убедимся, что на сцене есть EventSystem
+        // Убедимся, что есть EventSystem и GraphicRaycaster
         if (FindObjectOfType<EventSystem>() == null)
-        {
-            Debug.LogWarning("[ShowHomeButtonOnFinish] No EventSystem found in scene — кнопка не будет получать клики.");
-        }
+            Debug.LogWarning("[HomeButtonAfterFinalSession] No EventSystem found in scene.");
 
         go.SetActive(true);
         if (homeButtonGroup)
@@ -75,37 +87,25 @@ public class ShowHomeButtonOnFinish : MonoBehaviour
             homeButtonGroup.interactable = true;
             homeButtonGroup.blocksRaycasts = true;
         }
+        if (bringToFront) go.transform.SetAsLastSibling();
 
-        if (bringToFront)
-        {
-            go.transform.SetAsLastSibling();
-        }
-
-        // гарантия, что есть GraphicRaycaster на Canvas
         var canvas = go.GetComponentInParent<Canvas>();
         if (canvas && !canvas.TryGetComponent<GraphicRaycaster>(out _))
-        {
             canvas.gameObject.AddComponent<GraphicRaycaster>();
-        }
+
+        Debug.Log("[HomeButtonAfterFinalSession] HomeButton shown");
     }
 
     public void Hide()
     {
         var go = homeButtonObject ? homeButtonObject : (homeButtonGroup ? homeButtonGroup.gameObject : null);
         if (!go) return;
-
         if (homeButtonGroup)
         {
             homeButtonGroup.alpha = 0f;
             homeButtonGroup.interactable = false;
             homeButtonGroup.blocksRaycasts = false;
         }
-        // Не отключаем GameObject полностью, чтобы можно было плавно появиться альфой
-        // Если хотите полностью прятать объект — раскомментируйте строку ниже
-        // go.SetActive(false);
+        // Можно не отключать GameObject — так появление будет мгновенным через alpha.
     }
-
-    // Удобные пункты контекстного меню для тестов в playmode
-    [ContextMenu("Test/Show Now")] private void CtxShowNow() => Show();
-    [ContextMenu("Test/Hide Now")] private void CtxHideNow() => Hide();
 }
