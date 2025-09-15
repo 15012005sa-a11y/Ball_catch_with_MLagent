@@ -4627,6 +4627,7 @@ MonoBehaviour:
           m_BoolArgument: 0
         m_CallState: 2
   stopKinectOnGameEnd: 0
+  autoWireStartButton: 0
   exporter: {fileID: 868130160}
   currentScoreText: {fileID: 773590080}
   bestScoreText: {fileID: 293708306}
@@ -5122,7 +5123,6 @@ GameObject:
   - component: {fileID: 558530132}
   - component: {fileID: 558530131}
   - component: {fileID: 558530135}
-  - component: {fileID: 558530136}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -5238,21 +5238,6 @@ MonoBehaviour:
   spawnPointPlacer: {fileID: 766516888}
   offsetFromStart: {x: 180, y: 0}
   requireSelectionBeforeStart: 1
---- !u!114 &558530136
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 558530130}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 76c392e42b5098c458856cdf6ecaaaa1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_FirstSelected: {fileID: 0}
-  m_sendNavigationEvents: 1
-  m_DragThreshold: 10
 --- !u!1 &569387647 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 8013592909085702230, guid: 37495b644a8842442a686e6bb70e8ad6, type: 3}
@@ -14852,7 +14837,6 @@ GameObject:
   - component: {fileID: 1598290629}
   - component: {fileID: 1598290630}
   - component: {fileID: 1598290631}
-  - component: {fileID: 1598290632}
   m_Layer: 0
   m_Name: ScoreManager
   m_TagString: Untagged
@@ -14891,6 +14875,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   stopKinectOnGameEnd: 0
+  autoWireStartButton: 0
   exporter: {fileID: 868130160}
   currentScoreText: {fileID: 773590080}
   bestScoreText: {fileID: 293708306}
@@ -15008,18 +14993,6 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
---- !u!114 &1598290632
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1598290628}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a9c191620cd168e42ba89849f2da7ec6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &1599106677
 GameObject:
   m_ObjectHideFlags: 0

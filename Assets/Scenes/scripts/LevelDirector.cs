@@ -1,4 +1,5 @@
-﻿using System;
+﻿// LevelDirector.cs — полный файл
+using System;
 using System.Collections;
 using UnityEngine;
 using TMPro;
@@ -16,7 +17,7 @@ public class LevelDirector : MonoBehaviour
     [Header("Refs")]
     public BallSpawnerBallCatch spawner;
     public ScoreManager score;
-    public CountdownOverlay countdown;
+    public CountdownOverlay countdown;           // необязательный оверлей с методом Run(header, ticks)
 
     [Header("Rest (между уровнями)")]
     public float restBetweenLevelsSeconds = 3f;
@@ -34,10 +35,6 @@ public class LevelDirector : MonoBehaviour
     public Material redMaterial;
     [Range(0f, 1f)] public float redChance = 0.35f;
 
-    [Header("Durations (sec)")]
-    public float level1Duration = 15f;
-    public float level2Duration = 15f;
-
     [Header("Voice")]
     public AudioSource voiceSource;
     public AudioClip voiceLevel1, voiceLevel2, voiceReady;
@@ -49,8 +46,8 @@ public class LevelDirector : MonoBehaviour
     public string readyText = "Приготовьтесь";
     public float bannerHoldSeconds = 0f;
     public float bannerFadeTime = 0.5f;
-    [TextArea] public string level1Banner = "1 уровень: разбивай все шарики";
-    [TextArea] public string level2Banner = "2 уровень: не разбивай красных!";
+    [TextArea] public string level1Banner = "1 уровень: разбивайте все шарики";
+    [TextArea] public string level2Banner = "2 уровень: не разбивайте красных!";
 
     private void Awake()
     {
@@ -76,13 +73,13 @@ public class LevelDirector : MonoBehaviour
             score.OnSessionFinished.RemoveListener(OnSessionFinished);
     }
 
-    // ==== Запуск из кнопки «Начать игру» ====
+    // ==== К этой функции привязываем кнопку "Начать игру" (или к StartLevel1) ====
     public void StartGameplay()
     {
         if (!gameStarted)
         {
             gameStarted = true;
-            OnGameStarted?.Invoke(); // спрячем «Главная»
+            OnGameStarted?.Invoke(); // спрячем «Главная»/меню
         }
         StartLevel1();
     }
@@ -99,22 +96,20 @@ public class LevelDirector : MonoBehaviour
         currentLevel = 1;
 
         if (spawner) spawner.useColors = false;
-        if (score)
-        {
-            score.SetShowStartButton(false);
-            score.SetShowGraphButton(false);
-            score.sessionDuration = level1Duration;
-        }
 
+        // Никаких прямых запусков спавнера! Только через ScoreManager после отсчёта.
         SpeakReadyThenLevel(voiceLevel1);
-        StartCoroutine(PrepThen(() => score?.StartSession(), level1Banner));
+        StartCoroutine(PrepThen(() =>
+        {
+            score?.SetLevel(1);
+            score?.StartSession();              // ← старт ТОЛЬКО здесь, после 3-2-1
+        }, level1Banner));
     }
 
     private void StartLevel2()
     {
         if (!twoLevels)
         {
-            // Вообще не запускаем второй уровень
             FinishAll();
             return;
         }
@@ -132,15 +127,12 @@ public class LevelDirector : MonoBehaviour
             spawner.redMaterial = redMaterial;
         }
 
-        if (score)
-        {
-            score.SetShowStartButton(false);
-            score.SetShowGraphButton(false);
-            score.sessionDuration = level2Duration;
-        }
-
         SpeakReadyThenLevel(voiceLevel2);
-        StartCoroutine(PrepThen(() => score?.StartSessionKeepScore(), level2Banner));
+        StartCoroutine(PrepThen(() =>
+        {
+            score?.SetLevel(2);
+            score?.StartSessionKeepScore();     // ← второй уровень без обнуления счёта
+        }, level2Banner));
     }
 
     // ==== Завершения сессий от ScoreManager ====
@@ -196,7 +188,6 @@ public class LevelDirector : MonoBehaviour
             {
                 try { comp.GetType().GetMethod("StopKinect")?.Invoke(comp, null); } catch { }
             }
-            // kinectController.SetActive(false); // если нужно
         }
     }
 
@@ -226,10 +217,12 @@ public class LevelDirector : MonoBehaviour
 
         if (countdown != null)
         {
+            // собственный красивый оверлей с анимацией
             yield return countdown.Run($"{title}\n{readyText}", ticks);
         }
         else
         {
+            // простой текстовый вариант
             if (levelBannerText)
             {
                 levelBannerText.gameObject.SetActive(true);
@@ -256,7 +249,7 @@ public class LevelDirector : MonoBehaviour
             }
         }
 
-        startAction?.Invoke();
+        startAction?.Invoke(); // ← запуск строго ПОСЛЕ отсчёта
     }
 
     private IEnumerator FadeText(float from, float to, float duration)

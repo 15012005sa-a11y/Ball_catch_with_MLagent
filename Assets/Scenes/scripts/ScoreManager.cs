@@ -20,6 +20,10 @@ public class ScoreManager : MonoBehaviour
 
     public bool stopKinectOnGameEnd = false;
 
+    // поля класса
+    [Header("UI wiring")]
+    public bool autoWireStartButton = false;   // <- по умолчанию выключено
+
     [Header("Exporter")]
     public ExcelExporter exporter;
 
@@ -121,7 +125,7 @@ public class ScoreManager : MonoBehaviour
         var settings = PatientManager.Instance?.Current?.settings;
         if (settings != null) ApplySettingsFromPatient(settings);
 
-        WireStartButton();   // авто-привязка Start кнопки
+        if (autoWireStartButton) WireStartButton();
         Debug.Log("[ScoreManager] Ready. Waiting for StartSession...");
 
     }
