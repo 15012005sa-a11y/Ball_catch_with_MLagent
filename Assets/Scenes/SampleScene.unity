@@ -4626,8 +4626,6 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-  stopKinectOnGameEnd: 0
-  autoWireStartButton: 0
   exporter: {fileID: 868130160}
   currentScoreText: {fileID: 773590080}
   bestScoreText: {fileID: 293708306}
@@ -4642,6 +4640,7 @@ MonoBehaviour:
   graphButton: {fileID: 0}
   redPenalty: 1
   clampScoreToZero: 1
+  autoWireStartButton: 0
   showGraphButtonOnMenu: 0
   showStartButtonOnMenu: 1
   level1Duration: 180
@@ -7784,8 +7783,8 @@ GameObject:
   - component: {fileID: 828234040}
   - component: {fileID: 828234039}
   - component: {fileID: 828234038}
-  - component: {fileID: 828234041}
   - component: {fileID: 828234042}
+  - component: {fileID: 828234043}
   m_Layer: 5
   m_Name: HomeButton
   m_TagString: Untagged
@@ -7858,9 +7857,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 828234041}
+      - m_Target: {fileID: 828234036}
         m_TargetAssemblyTypeName: HomeButtonController, Assembly-CSharp
-        m_MethodName: Hide
+        m_MethodName: 
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -7908,21 +7907,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 828234036}
   m_CullTransparentMesh: 1
---- !u!114 &828234041
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 828234036}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6ccc7366cf007ce40a73b4d4a3749156, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  homeButton: {fileID: 828234038}
-  appShellSceneName: AppShell
-  levelDirector: {fileID: 1279475879}
 --- !u!225 &828234042
 CanvasGroup:
   m_ObjectHideFlags: 0
@@ -7935,6 +7919,23 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &828234043
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 828234036}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 412114fad927d944a89cb1908b69be8c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  levelDirector: {fileID: 1279475879}
+  homeButtonGroup: {fileID: 828234042}
+  homeButtonObject: {fileID: 828234036}
+  hideAtStart: 1
+  bringToFront: 1
 --- !u!1001 &835667447
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -11920,6 +11921,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ca4d0ebcc47ab4b4ca8d0df244c5b17f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  homeButtonGroup: {fileID: 828234042}
+  homeButtonObject: {fileID: 828234036}
   twoLevels: 1
   spawner: {fileID: 500489876}
   score: {fileID: 1598290630}
@@ -11934,8 +11937,6 @@ MonoBehaviour:
   blueMaterial: {fileID: 2100000, guid: 963be82a8dbb863408a13c74ed241e59, type: 2}
   redMaterial: {fileID: 2100000, guid: 5b61eb418615c424c9f45933efa0eb06, type: 2}
   redChance: 0.35
-  level1Duration: 15
-  level2Duration: 15
   voiceSource: {fileID: 2034391474}
   voiceLevel1: {fileID: 8300000, guid: e8a4cfff7366f134da77b61906acba25, type: 3}
   voiceLevel2: {fileID: 8300000, guid: 425ba2f5faa5abb4db0003fea32ecd71, type: 3}
@@ -11950,6 +11951,8 @@ MonoBehaviour:
     \u0432\u0441\u0435 \u0448\u0430\u0440\u0438\u043A\u0438"
   level2Banner: "2 \u0443\u0440\u043E\u0432\u0435\u043D\u044C: \u043D\u0435 \u0440\u0430\u0437\u0431\u0438\u0432\u0430\u0439\u0442\u0435
     \u043A\u0440\u0430\u0441\u043D\u044B\u0445!"
+  level1Duration: 15
+  level2Duration: 15
 --- !u!4 &1279475880
 Transform:
   m_ObjectHideFlags: 0
@@ -14874,8 +14877,6 @@ MonoBehaviour:
   OnSessionFinished:
     m_PersistentCalls:
       m_Calls: []
-  stopKinectOnGameEnd: 0
-  autoWireStartButton: 0
   exporter: {fileID: 868130160}
   currentScoreText: {fileID: 773590080}
   bestScoreText: {fileID: 293708306}
@@ -14890,6 +14891,7 @@ MonoBehaviour:
   graphButton: {fileID: 462736928}
   redPenalty: 1
   clampScoreToZero: 1
+  autoWireStartButton: 0
   showGraphButtonOnMenu: 0
   showStartButtonOnMenu: 1
   level1Duration: 180
@@ -15243,7 +15245,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1279475879}
         m_TargetAssemblyTypeName: LevelDirector, Assembly-CSharp
-        m_MethodName: StartLevel1
+        m_MethodName: StartGameplay
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}

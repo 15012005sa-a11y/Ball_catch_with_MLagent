@@ -1,25 +1,34 @@
-﻿// LevelDirector.cs — полный файл
-using System;
+﻿using System;
 using System.Collections;
+using System.Reflection;
 using UnityEngine;
 using TMPro;
 
+[DefaultExecutionOrder(-40)]
 public class LevelDirector : MonoBehaviour
 {
     public event Action OnGameStarted;
     public event Action OnGameFinished;
 
+    [Header("Finish UI")]
+    [Tooltip("Кнопка Домой, которую нужно показать после завершения всех уровней")]
+    public CanvasGroup homeButtonGroup; // повесьте сюда CanvasGroup объекта HomeButton
+
+    [Tooltip("Если нужно дополнительно активировать сам объект кнопки")]
+    public GameObject homeButtonObject; // можно оставить пустым — будет взят из homeButtonGroup
     [Header("Game flow")]
-    public bool twoLevels = true;                // если false — завершаем сразу после 1 уровня
-    private int currentLevel = 0;
-    private bool gameStarted = false;
+    public bool twoLevels = true;
+
+    private int _currentLevel = 0; // 0 – не идёт, 1 – уровень 1, 2 – уровень 2
+    private bool _gameStarted;
 
     [Header("Refs")]
     public BallSpawnerBallCatch spawner;
     public ScoreManager score;
-    public CountdownOverlay countdown;           // необязательный оверлей с методом Run(header, ticks)
+    public CountdownOverlay countdown;
 
-    [Header("Rest (между уровнями)")]
+    [Header("Rest UI (между уровнями)")]
+    [Tooltip("Приоритет: это значение. Если 0 – пробуем взять из ScoreManager.RestSeconds")]
     public float restBetweenLevelsSeconds = 3f;
     public TMP_Text restText;
     public CanvasGroup restGroup;
@@ -45,15 +54,37 @@ public class LevelDirector : MonoBehaviour
     public float prepDelaySeconds = 3f;
     public string readyText = "Приготовьтесь";
     public float bannerHoldSeconds = 0f;
-    public float bannerFadeTime = 0.5f;
+    public float bannerFadeTime = 0.35f;
     [TextArea] public string level1Banner = "1 уровень: разбивайте все шарики";
     [TextArea] public string level2Banner = "2 уровень: не разбивайте красных!";
 
+    [Header("Durations (legacy external config)")]
+    public int level1Duration = 180;
+    public int level2Duration = 120;
+
+    private static readonly BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+    // Публичный хук, который может дернуть ScoreManager, если по событию не начался отдых/Level2
+    public void StartRestThenLevel2External()
+    {
+        StopAllCoroutines();
+        var mi = GetType().GetMethod("RestThenStartLevel2", BindingFlags.Instance | BindingFlags.NonPublic);
+        if (mi != null)
+        {
+            var ie = mi.Invoke(this, null) as IEnumerator;
+            if (ie != null) StartCoroutine(ie);
+        }
+        else
+        {
+            // крайней мерой — сразу второй уровень
+            var m2 = GetType().GetMethod("StartLevel2", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (m2 != null) m2.Invoke(this, null);
+        }
+    }
+
     private void Awake()
     {
-        if (!spawner) spawner = FindObjectOfType<BallSpawnerBallCatch>();
-        if (!score) score = FindObjectOfType<ScoreManager>();
-
+        ReconnectRefs();
         if (levelBannerText)
         {
             var c = levelBannerText.color; c.a = 0f; levelBannerText.color = c;
@@ -63,61 +94,64 @@ public class LevelDirector : MonoBehaviour
 
     private void OnEnable()
     {
+        ReconnectRefs();
         if (score != null)
+        {
+            score.OnSessionFinished.RemoveListener(OnSessionFinished);
             score.OnSessionFinished.AddListener(OnSessionFinished);
+        }
     }
 
     private void OnDisable()
     {
-        if (score != null)
-            score.OnSessionFinished.RemoveListener(OnSessionFinished);
+        if (score != null) score.OnSessionFinished.RemoveListener(OnSessionFinished);
     }
 
-    // ==== К этой функции привязываем кнопку "Начать игру" (или к StartLevel1) ====
+    private void ReconnectRefs()
+    {
+        if (!spawner) spawner = FindObjectOfType<BallSpawnerBallCatch>(true);
+        if (!score) score = FindObjectOfType<ScoreManager>(true);
+    }
+
+    // ====== ПУСК ИГРЫ ======
     public void StartGameplay()
     {
-        if (!gameStarted)
+        if (!_gameStarted)
         {
-            gameStarted = true;
-            OnGameStarted?.Invoke(); // спрячем «Главная»/меню
+            _gameStarted = true;
+            OnGameStarted?.Invoke();
         }
         StartLevel1();
     }
 
     public void StartLevel1()
     {
-        if (!gameStarted)
-        {
-            gameStarted = true;
-            OnGameStarted?.Invoke();
-        }
+        ReconnectRefs();
+        if (!_gameStarted) { _gameStarted = true; OnGameStarted?.Invoke(); }
 
         StartKinectTracking();
-        currentLevel = 1;
+        _currentLevel = 1;
 
         if (spawner) spawner.useColors = false;
 
-        // Никаких прямых запусков спавнера! Только через ScoreManager после отсчёта.
+        // Между 1 и 2 уровнем меню не нужно
+        if (score && twoLevels) score.suppressMenuOnEndOnce = true;
+
         SpeakReadyThenLevel(voiceLevel1);
         StartCoroutine(PrepThen(() =>
         {
-            score?.SetLevel(1);
-            score?.StartSession();              // ← старт ТОЛЬКО здесь, после 3-2-1
+            PushDurationsToScoreManager();
+            SafeStart(level: 1, keepScore: false);
         }, level1Banner));
     }
 
     private void StartLevel2()
     {
-        if (!twoLevels)
-        {
-            FinishAll();
-            return;
-        }
+        if (!twoLevels) { FinishAll(); return; }
 
         if (stopBetweenLevels) StopKinectTracking();
         StartKinectTracking();
-
-        currentLevel = 2;
+        _currentLevel = 2;
 
         if (spawner)
         {
@@ -127,20 +161,33 @@ public class LevelDirector : MonoBehaviour
             spawner.redMaterial = redMaterial;
         }
 
+        // На второй уровень меню тоже не должно появляться до конца
+        if (score) score.suppressMenuOnEndOnce = false; // после 2-го пусть меню появится
+
         SpeakReadyThenLevel(voiceLevel2);
         StartCoroutine(PrepThen(() =>
         {
-            score?.SetLevel(2);
-            score?.StartSessionKeepScore();     // ← второй уровень без обнуления счёта
+            PushDurationsToScoreManager();
+            SafeStart(level: 2, keepScore: true);
         }, level2Banner));
     }
 
-    // ==== Завершения сессий от ScoreManager ====
+    private void SafeStart(int level, bool keepScore)
+    {
+        ReconnectRefs();
+        if (!score) { Debug.LogError("[LevelDirector] ScoreManager not found"); return; }
+        score.SetLevel(level);
+        if (keepScore) score.StartSessionKeepScore(); else score.StartSession();
+    }
+
+    // ====== Завершение уровня из ScoreManager ======
     private void OnSessionFinished()
     {
-        if (currentLevel == 1 && twoLevels)
+        if (_currentLevel == 1 && twoLevels)
         {
-            StartCoroutine(WaitAndStartLevel2());
+            // Первый уровень завершён — запускаем отдых → потом 2-й
+            StopAllCoroutines();
+            StartCoroutine(RestThenStartLevel2());
         }
         else
         {
@@ -148,47 +195,81 @@ public class LevelDirector : MonoBehaviour
         }
     }
 
+    private IEnumerator RestThenStartLevel2()
+    {
+        // 1) Берём из инспектора, 2) если 0 — из ScoreManager.RestSeconds
+        int restSec = Mathf.Max(0, Mathf.RoundToInt(restBetweenLevelsSeconds));
+        if (restSec <= 0 && score != null && score.RestSeconds > 0)
+            restSec = score.RestSeconds;
+
+        if (restSec > 0)
+        {
+            if (restText)
+            {
+                if (restGroup) yield return StartCoroutine(FadeGroup(restGroup, 0f, 1f, restFadeTime));
+                restText.gameObject.SetActive(true);
+                for (int s = restSec; s > 0; s--)
+                {
+                    restText.text = $"Отдых... {s} сек";
+                    yield return new WaitForSeconds(1f);
+                }
+                if (restGroup) yield return StartCoroutine(FadeGroup(restGroup, 1f, 0f, restFadeTime));
+                restText.gameObject.SetActive(false);
+            }
+            else
+            {
+                yield return new WaitForSeconds(restSec);
+            }
+        }
+
+        StartLevel2();
+    }
+
+    // Вызывается в конце 2-го уровня (или в конце единственного уровня)
+    private void ShowHomeButton()
+    {
+        var go = homeButtonObject ? homeButtonObject : (homeButtonGroup ? homeButtonGroup.gameObject : null);
+        if (!go) return;
+
+
+        go.SetActive(true);
+        if (homeButtonGroup)
+        {
+            homeButtonGroup.alpha = 1f;
+            homeButtonGroup.interactable = true;
+            homeButtonGroup.blocksRaycasts = true;
+        }
+    }
+
+    // Вызовите из FinishAll()
     private void FinishAll()
     {
         if (score)
         {
-            score.SetShowStartButton(true);
+            score.SetShowStartButton(false); // скрыть кнопку старт, если не нужна
             score.SetShowGraphButton(true);
         }
-        currentLevel = 0;
-
+        _currentLevel = 0;
         if (stopKinectOnGameEnd) StopKinectTracking();
+        _gameStarted = false;
+        OnGameFinished?.Invoke();
 
-        gameStarted = false;
-        OnGameFinished?.Invoke(); // показать «Главная»
+
+        // Показать HomeButton
+        ShowHomeButton();
     }
 
-    // ==== Вспомогательное ====
-    private void StartKinectTracking()
+// ====== Helpers ======
+private void StartKinectTracking()
     {
         if (kinectController && !kinectController.activeSelf)
             kinectController.SetActive(true);
-
-        if (kinectController)
-        {
-            var comp = kinectController.GetComponent("KinectManager");
-            if (comp != null)
-            {
-                try { comp.GetType().GetMethod("StartKinect")?.Invoke(comp, null); } catch { }
-            }
-        }
     }
 
     private void StopKinectTracking()
     {
-        if (kinectController)
-        {
-            var comp = kinectController.GetComponent("KinectManager");
-            if (comp != null)
-            {
-                try { comp.GetType().GetMethod("StopKinect")?.Invoke(comp, null); } catch { }
-            }
-        }
+        if (kinectController && kinectController.activeSelf)
+            kinectController.SetActive(false);
     }
 
     private void SpeakReadyThenLevel(AudioClip levelClip)
@@ -217,12 +298,10 @@ public class LevelDirector : MonoBehaviour
 
         if (countdown != null)
         {
-            // собственный красивый оверлей с анимацией
             yield return countdown.Run($"{title}\n{readyText}", ticks);
         }
         else
         {
-            // простой текстовый вариант
             if (levelBannerText)
             {
                 levelBannerText.gameObject.SetActive(true);
@@ -249,7 +328,7 @@ public class LevelDirector : MonoBehaviour
             }
         }
 
-        startAction?.Invoke(); // ← запуск строго ПОСЛЕ отсчёта
+        startAction?.Invoke();
     }
 
     private IEnumerator FadeText(float from, float to, float duration)
@@ -267,32 +346,6 @@ public class LevelDirector : MonoBehaviour
         c.a = to; levelBannerText.color = c;
     }
 
-    private IEnumerator WaitAndStartLevel2()
-    {
-        int ticks = Mathf.Max(1, Mathf.CeilToInt(restBetweenLevelsSeconds));
-
-        if (restText)
-        {
-            if (restGroup) yield return StartCoroutine(FadeGroup(restGroup, 0f, 1f, restFadeTime));
-            restText.gameObject.SetActive(true);
-
-            for (int s = ticks; s > 0; s--)
-            {
-                restText.text = $"Отдых... {s} сек";
-                yield return new WaitForSeconds(1f);
-            }
-
-            if (restGroup) yield return StartCoroutine(FadeGroup(restGroup, 1f, 0f, restFadeTime));
-            restText.gameObject.SetActive(false);
-        }
-        else
-        {
-            yield return new WaitForSeconds(restBetweenLevelsSeconds);
-        }
-
-        StartLevel2();
-    }
-
     private IEnumerator FadeGroup(CanvasGroup g, float from, float to, float dur)
     {
         if (!g) yield break;
@@ -307,5 +360,22 @@ public class LevelDirector : MonoBehaviour
         }
         g.alpha = to;
         if (to <= 0f) g.gameObject.SetActive(false);
+    }
+
+    private void PushDurationsToScoreManager()
+    {
+        if (!score) return;
+        try
+        {
+            var t = score.GetType();
+            var f1 = t.GetField("level1Duration", BF);
+            var f2 = t.GetField("level2Duration", BF);
+            if (f1 != null) f1.SetValue(score, Mathf.Clamp(level1Duration, 5, 3600));
+            if (f2 != null) f2.SetValue(score, Mathf.Clamp(level2Duration, 5, 3600));
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[LevelDirector] Push durations failed: {e.Message}");
+        }
     }
 }

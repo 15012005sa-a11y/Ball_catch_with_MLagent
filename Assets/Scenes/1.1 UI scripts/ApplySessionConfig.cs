@@ -9,19 +9,31 @@ public class ApplySessionConfig : MonoBehaviour
         var dir = FindObjectOfType<LevelDirector>();
         if (dir != null)
         {
-            dir.level1Duration = cfg.Level1Duration;
-            dir.level2Duration = cfg.Level2Duration;
+            // cfg.Level1Duration/Level2Duration Ч float, а у LevelDirector пол€ int
+            dir.level1Duration = Mathf.RoundToInt(cfg.Level1Duration);
+            dir.level2Duration = Mathf.RoundToInt(cfg.Level2Duration);
             dir.redChance = cfg.RedChance;
-            try { var f = dir.GetType().GetField("stopBetweenLevels"); if (f != null) f.SetValue(dir, cfg.StopBetweenLevels); } catch { }
+
+            try
+            {
+                var f = dir.GetType().GetField("stopBetweenLevels");
+                if (f != null) f.SetValue(dir, cfg.StopBetweenLevels);
+            }
+            catch { }
         }
 
         var score = FindObjectOfType<ScoreManager>();
         if (score != null)
         {
-            try { var f = score.GetType().GetField("stopKinectOnGameEnd"); if (f != null) f.SetValue(score, cfg.StopKinectOnGameEnd); } catch { }
+            try
+            {
+                var f = score.GetType().GetField("stopKinectOnGameEnd");
+                if (f != null) f.SetValue(score, cfg.StopKinectOnGameEnd);
+            }
+            catch { }
         }
 
-        // NEW: если есть PatientManager Ч выставим выбранного
+        // ≈сли есть PatientManager Ч выставим выбранного пациента
         var pm = FindObjectOfType<PatientManager>();
         if (pm != null && cfg.SelectedPatientId >= 0)
         {
@@ -33,5 +45,4 @@ public class ApplySessionConfig : MonoBehaviour
             catch { }
         }
     }
-
 }
