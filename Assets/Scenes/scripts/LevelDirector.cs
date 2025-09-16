@@ -121,6 +121,10 @@ public class LevelDirector : MonoBehaviour
             _gameStarted = true;
             OnGameStarted?.Invoke();
         }
+
+        var hb = FindObjectOfType<HomeButtonAfterFinalSession>(true);
+        hb?.Hide();
+
         StartLevel1();
     }
 

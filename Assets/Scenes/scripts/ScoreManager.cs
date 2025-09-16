@@ -1,8 +1,10 @@
-﻿// =============================
-// REPLACE your existing ScoreManager.cs with this version
-// (contains a fallback bridge to force "Rest → Level 2" even if
-// the event chain is broken for any reason)
-// =============================
+﻿// ===============================================
+// ScoreManager (final)
+// - Появится HomeButton только после финального финиша (после 2-го уровня)
+// - Добавлен флаг LastSessionWasBetweenLevels, чтобы различать конец 1-го уровня
+// - Сохранён мост на LevelDirector, чтобы гарантировать переход Rest → Level 2
+// - Совместим с существующими скриптами (SetShowStartButton, StartSessionInternal(resetScore), RegisterMiss и т.д.)
+// ===============================================
 
 using System;
 using System.Collections.Generic;
@@ -16,26 +18,23 @@ using UnityEngine.Events;
 [RequireComponent(typeof(AudioSource))]
 public class ScoreManager : MonoBehaviour
 {
-    public UnityEvent OnSessionFinished;                 // UnityEvent без параметров
+    // ==== Events / Singleton
+    public UnityEvent OnSessionFinished = new UnityEvent(); // UnityEvent без параметров
     public static ScoreManager Instance { get; private set; }
 
-    // Gameplay events
-    public event Action OnBallCaught;                    // любой пойманный мяч
-    public event Action OnGoodCatch;                     // «правильный» мяч
-    public event Action OnRedTouched;                    // красный задет
-    public event Action OnMissed;                        // промах
+    public event Action OnBallCaught;    // любой пойманный мяч
+    public event Action OnGoodCatch;     // «правильный» мяч
+    public event Action OnRedTouched;    // красный задет
+    public event Action OnMissed;        // промах
 
+    // ==== Inspector
     [Header("Exporter")] public ExcelExporter exporter;
 
-    [Header("UI Elements")] public TMP_Text currentScoreText;
-    public TMP_Text bestScoreText;
-    public TMP_Text timerText;
+    [Header("UI Elements")] public TMP_Text currentScoreText; public TMP_Text bestScoreText; public TMP_Text timerText;
 
     [Header("Session Settings")] public float sessionDuration = 20f;
 
-    [Header("Dependencies")] public BallSpawnerBallCatch ballSpawner;
-    public GameObject uiPanel;
-    public GameObject startButton;
+    [Header("Dependencies")] public BallSpawnerBallCatch ballSpawner; public GameObject uiPanel; public GameObject startButton;
 
     [Header("Tracking")] public MotionLogger motionLogger;
 
@@ -55,33 +54,33 @@ public class ScoreManager : MonoBehaviour
     [Header("Level durations (from PatientSettings)")]
     [SerializeField] private int level1Duration = 180;
     [SerializeField] private int level2Duration = 120;
-    [SerializeField] private int restSeconds = 60;           // пауза между уровнями
+    [SerializeField] private int restSeconds = 60; // пауза между уровнями
     public int RestSeconds => restSeconds;
 
-    public int currentLevel = 1;
+    public int currentLevel = 1; // 1 или 2
 
     // Подавить показ меню при ближайшем завершении (для перехода 1→Rest→2)
     [NonSerialized] public bool suppressMenuOnEndOnce = false;
 
-    // runtime
+    // Флаг, которым можно надёжно отличить финиш 1-го уровня (между уровнями)
+    public bool LastSessionWasBetweenLevels { get; private set; }
+
+    // ==== Runtime
     private readonly List<float> _accuracy = new();
     private readonly List<float> _reactionTimes = new();
-    public Dictionary<int, float> spawnTimes = new();
+    public readonly Dictionary<int, float> spawnTimes = new();
     public int nextBallId = 0;
     private int _currentScore;
     private float _timer;
     private bool _sessionRunning;
     private bool _resetScoreOnStart = true;
 
+    // ==== Unity lifecycle
     private void Awake()
     {
-        if (Instance == null)
-        {
-            Instance = this; DontDestroyOnLoad(gameObject);
-            _audio = GetComponent<AudioSource>();
-            if (!motionLogger) motionLogger = FindObjectOfType<MotionLogger>(true);
-        }
-        else { Destroy(gameObject); }
+        Instance = this;                     // новый менеджер в каждой сцене
+        _audio = GetComponent<AudioSource>();
+        if (!motionLogger) motionLogger = FindObjectOfType<MotionLogger>(true);
     }
 
     private void Start()
@@ -102,28 +101,60 @@ public class ScoreManager : MonoBehaviour
         UpdateUI();
     }
 
-    // ===== Public helpers =====
-    public void SetShowStartButton(bool value) { showStartButtonOnMenu = value; if (!_sessionRunning && startButton) startButton.SetActive(value); }
-    public void SetShowGraphButton(bool value) { showGraphButtonOnMenu = value; if (!_sessionRunning && graphButton) graphButton.SetActive(value); }
-    public void SetLevel(int level) { currentLevel = Mathf.Clamp(level, 1, 2); }
+    // ==== Public helpers (API, которые используются другими скриптами)
+    public void SetShowStartButton(bool value)
+    {
+        showStartButtonOnMenu = value;
+        if (!_sessionRunning && startButton) startButton.SetActive(value);
+    }
+
+    public void SetShowGraphButton(bool value)
+    {
+        showGraphButtonOnMenu = value;
+        if (!_sessionRunning && graphButton) graphButton.SetActive(value);
+    }
+
+    public void SetLevel(int level) => currentLevel = Mathf.Clamp(level, 1, 2);
+
     public void RegisterMiss() => OnMissed?.Invoke();
 
-    // ===== Session control =====
-    public void StartSession() { Debug.Log("[ScoreManager] StartSession()"); StartSessionInternal(resetScore: _resetScoreOnStart); _resetScoreOnStart = false; }
-    public void StartSessionKeepScore() { Debug.Log("[ScoreManager] StartSessionKeepScore()"); StartSessionInternal(resetScore: false); }
+    // ==== Session control
+    public void StartSession()
+    {
+        Debug.Log("[ScoreManager] StartSession()");
+        StartSessionInternal(resetScore: _resetScoreOnStart);
+        _resetScoreOnStart = false;
+    }
 
-    // NB: параметр обязан называться именно resetScore — внешние скрипты используют именованный аргумент
+    public void StartSessionKeepScore()
+    {
+        Debug.Log("[ScoreManager] StartSessionKeepScore()");
+        StartSessionInternal(resetScore: false);
+    }
+
+    // NB: имя параметра ДОЛЖНО быть resetScore — на него ссылаются внешние скрипты именованным аргументом
     private void StartSessionInternal(bool resetScore)
     {
         Time.timeScale = 1f;
         uiPanel?.SetActive(false); startButton?.SetActive(false);
         var ps = PatientManager.Instance?.Current?.settings; if (ps != null) ApplySettingsFromPatient(ps);
         if (resetScore) _currentScore = 0;
-        _timer = (currentLevel == 1) ? level1Duration : level2Duration; sessionDuration = _timer; _sessionRunning = true;
+
+        _timer = (currentLevel == 1) ? level1Duration : level2Duration;
+        sessionDuration = _timer;
+        _sessionRunning = true;
+
         _accuracy.Clear(); _reactionTimes.Clear(); spawnTimes.Clear(); nextBallId = 0;
+
         if (!ballSpawner) ballSpawner = FindObjectOfType<BallSpawnerBallCatch>(true);
         if (ballSpawner) ballSpawner.StartSpawning(); else Debug.LogWarning("[ScoreManager] ballSpawner == null");
-        if (motionLogger) { motionLogger.StartLogging(); motionLogger.trackArmAngles = true; }
+
+        if (motionLogger)
+        {
+            motionLogger.StartLogging();
+            motionLogger.trackArmAngles = true;
+        }
+
         Debug.Log($"[ScoreManager] Session START → level={currentLevel}, timer={_timer}s");
         UpdateUI();
     }
@@ -131,24 +162,54 @@ public class ScoreManager : MonoBehaviour
     private void EndSession()
     {
         _sessionRunning = false;
+
         if (ballSpawner) ballSpawner.StopSpawning();
-        if (motionLogger) { string logName = "Motion_" + DateTime.Now.ToString("yyyyMMdd_HHmmss"); motionLogger.StopLogging(logName); }
+        if (motionLogger)
+        {
+            string logName = "Motion_" + DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            motionLogger.StopLogging(logName);
+        }
 
-        int best = PlayerPrefs.GetInt("BestScore", 0); if (_currentScore > best) { PlayerPrefs.SetInt("BestScore", _currentScore); PlayerPrefs.Save(); }
+        // best score
+        int best = PlayerPrefs.GetInt("BestScore", 0);
+        if (_currentScore > best)
+        {
+            PlayerPrefs.SetInt("BestScore", _currentScore);
+            PlayerPrefs.Save();
+        }
 
-        bool suppress = suppressMenuOnEndOnce; suppressMenuOnEndOnce = false; // одноразовый
-        if (!suppress) { uiPanel?.SetActive(true); if (startButton) startButton.SetActive(showStartButtonOnMenu); if (graphButton) graphButton.SetActive(showGraphButtonOnMenu); }
-        else { Debug.Log("[ScoreManager] Menu suppressed (between levels)"); }
+        // Решение, показывать ли меню (между уровнями его скрываем)
+        bool suppress = suppressMenuOnEndOnce;            // было
+        LastSessionWasBetweenLevels = suppress;           // НОВОЕ: запоминаем, что это был межуровневый финиш
+        suppressMenuOnEndOnce = false;                    // одноразовый флаг сбрасываем
+
+        if (!suppress)
+        {
+            uiPanel?.SetActive(true);
+            if (startButton) startButton.SetActive(showStartButtonOnMenu);
+            if (graphButton) graphButton.SetActive(showGraphButtonOnMenu);
+        }
+        else
+        {
+            Debug.Log("[ScoreManager] Menu suppressed (between levels)");
+        }
 
         // простые метрики
-        float successRate = 0f; if (ballSpawner && ballSpawner.spawnInterval > 0f) successRate = _currentScore / (sessionDuration / ballSpawner.spawnInterval);
-        float playTime = Mathf.Max(sessionDuration - _timer, 0f); float avgReaction = _reactionTimes.Count > 0 ? _reactionTimes.Average() : 0f;
-        if (exporter != null) { int pid = PatientManager.Instance ? PatientManager.Instance.CurrentPatientID : -1; exporter.ExportSession(pid, _currentScore, successRate, playTime, avgReaction, 0f, 0f); }
+        float successRate = 0f;
+        if (ballSpawner && ballSpawner.spawnInterval > 0f)
+            successRate = _currentScore / (sessionDuration / ballSpawner.spawnInterval);
+        float playTime = Mathf.Max(sessionDuration - _timer, 0f);
+        float avgReaction = _reactionTimes.Count > 0 ? _reactionTimes.Average() : 0f;
+        if (exporter != null)
+        {
+            int pid = PatientManager.Instance ? PatientManager.Instance.CurrentPatientID : -1;
+            exporter.ExportSession(pid, _currentScore, successRate, playTime, avgReaction, 0f, 0f);
+        }
 
         Debug.Log("[ScoreManager] Session END");
-        OnSessionFinished?.Invoke(); // обычная цепочка
+        OnSessionFinished?.Invoke(); // событие для UI и HomeButton
 
-        // ---- Fallback-bridge: если подавили меню, но второй уровень не стартовал по событию, запускаем сами ----
+        // ---- Fallback-bridge: если подавили меню, но 2-й уровень не стартовал по событию, запускаем сами ----
         if (suppress)
         {
             try
@@ -157,12 +218,19 @@ public class ScoreManager : MonoBehaviour
                 if (dir != null)
                 {
                     var m = dir.GetType().GetMethod("StartRestThenLevel2External", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                    if (m != null) { Debug.Log("[ScoreManager] Bridge → StartRestThenLevel2External()"); m.Invoke(dir, null); }
+                    if (m != null)
+                    {
+                        Debug.Log("[ScoreManager] Bridge → StartRestThenLevel2External()");
+                        m.Invoke(dir, null);
+                    }
                     else
                     {
-                        // крайней мерой запустим сразу Level2 без отдыха
                         var m2 = dir.GetType().GetMethod("StartLevel2", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                        if (m2 != null) { Debug.LogWarning("[ScoreManager] Bridge fallback → StartLevel2() without rest"); m2.Invoke(dir, null); }
+                        if (m2 != null)
+                        {
+                            Debug.LogWarning("[ScoreManager] Bridge fallback → StartLevel2() without rest");
+                            m2.Invoke(dir, null);
+                        }
                         else Debug.LogWarning("[ScoreManager] Bridge: LevelDirector methods not found");
                     }
                 }
@@ -172,29 +240,54 @@ public class ScoreManager : MonoBehaviour
         }
     }
 
-    // ===== Gameplay API =====
+    // ==== Gameplay API
     public void AddScore(int points)
     {
-        if (!_sessionRunning) return; _currentScore += points; if (clampScoreToZero && _currentScore < 0) _currentScore = 0; UpdateUI();
-        OnBallCaught?.Invoke(); OnGoodCatch?.Invoke(); if (popSound && _audio) _audio.PlayOneShot(popSound);
+        if (!_sessionRunning) return;
+        _currentScore += points;
+        if (clampScoreToZero && _currentScore < 0) _currentScore = 0;
+        UpdateUI();
+        OnBallCaught?.Invoke();
+        OnGoodCatch?.Invoke();
+        if (popSound && _audio) _audio.PlayOneShot(popSound);
     }
 
     public void RedBallTouched()
     {
-        if (!_sessionRunning) return; _currentScore -= Mathf.Abs(redPenalty); if (clampScoreToZero && _currentScore < 0) _currentScore = 0; UpdateUI();
-        OnRedTouched?.Invoke(); if (popSound && _audio) _audio.PlayOneShot(popSound);
+        if (!_sessionRunning) return;
+        _currentScore -= Mathf.Abs(redPenalty);
+        if (clampScoreToZero && _currentScore < 0) _currentScore = 0;
+        UpdateUI();
+        OnRedTouched?.Invoke();
+        if (popSound && _audio) _audio.PlayOneShot(popSound);
     }
 
     public void RecordSpawn(int ballId) => spawnTimes[ballId] = Time.time;
     public void RegisterSpawn(int ballId) => RecordSpawn(ballId);
-    public void RecordAccuracy(float distance) { float acc = 1f - Mathf.Clamp01(distance / maxCatchDistance); _accuracy.Add(acc); }
-    public void RecordReactionTime(float reaction) { _reactionTimes.Add(reaction); }
+    public void RecordAccuracy(float distance)
+    {
+        float acc = 1f - Mathf.Clamp01(distance / maxCatchDistance);
+        _accuracy.Add(acc);
+    }
 
+    public void RecordReactionTime(float reaction) => _reactionTimes.Add(reaction);
+
+    // ==== UI wiring
     private void WireStartButton()
-    { if (!startButton) return; var btn = startButton.GetComponent<Button>(); if (!btn) return; btn.onClick.RemoveAllListeners(); btn.onClick.AddListener(StartSession); }
+    {
+        if (!startButton) return;
+        var btn = startButton.GetComponent<Button>();
+        if (!btn) return;
+        btn.onClick.RemoveAllListeners();
+        btn.onClick.AddListener(StartSession);
+    }
 
     private void UpdateUI()
-    { if (currentScoreText) currentScoreText.text = $"My Score: {_currentScore}"; if (bestScoreText) bestScoreText.text = $"Best Score: {PlayerPrefs.GetInt("BestScore", 0)}"; if (timerText) timerText.text = $"Time: {Mathf.Ceil(_timer)}s"; }
+    {
+        if (currentScoreText) currentScoreText.text = $"My Score: {_currentScore}";
+        if (bestScoreText) bestScoreText.text = $"Best Score: {PlayerPrefs.GetInt("BestScore", 0)}";
+        if (timerText) timerText.text = $"Time: {Mathf.Ceil(_timer)}s";
+    }
 
     private void AutoReconnectRefs()
     {
@@ -205,7 +298,7 @@ public class ScoreManager : MonoBehaviour
         if (!timerText) timerText = Resources.FindObjectsOfTypeAll<TMP_Text>().FirstOrDefault(t => t.name.ToLower().Contains("timer"));
     }
 
-    // ===== Patient settings =====
+    // ==== Patient settings mapping (через рефлексию — значения могут называться по-разному)
     private static readonly BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
     public void ApplySettingsFromPatient(object settings)
     {
@@ -214,15 +307,17 @@ public class ScoreManager : MonoBehaviour
         restSeconds = Mathf.Clamp(GetInt(settings, new[] { "RestSeconds", "restTimeSec" }, restSeconds), 0, 600);
         Debug.Log($"[ScoreManager] Durations ← settings: L1={level1Duration}, L2={level2Duration}, Rest={restSeconds}");
     }
+
     private static int GetInt(object obj, string[] names, int defVal)
     {
         if (obj == null) return defVal;
         foreach (var n in names)
         {
-            var f = obj.GetType().GetField(n, BF); if (f != null) { try { return Convert.ToInt32(f.GetValue(obj)); } catch { } }
-            var p = obj.GetType().GetProperty(n, BF); if (p != null && p.CanRead) { try { return Convert.ToInt32(p.GetValue(obj, null)); } catch { } }
+            var f = obj.GetType().GetField(n, BF);
+            if (f != null) { try { return Convert.ToInt32(f.GetValue(obj)); } catch { } }
+            var p = obj.GetType().GetProperty(n, BF);
+            if (p != null && p.CanRead) { try { return Convert.ToInt32(p.GetValue(obj, null)); } catch { } }
         }
         return defVal;
     }
 }
-

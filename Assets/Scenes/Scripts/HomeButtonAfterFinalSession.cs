@@ -1,24 +1,19 @@
-﻿using System.Collections;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-/// <summary>
-/// Показывает HomeButton ТОЛЬКО после окончательного завершения сессии
-/// (т.е. после 2-го уровня, потому что после 1-го ScoreManager ставит
-/// suppressMenuOnEndOnce = true, и мы пропускаем показ).
-/// Работает напрямую от ScoreManager.OnSessionFinished, даже если LevelDirector
-/// не прислал свой OnGameFinished.
-/// </summary>
 [DefaultExecutionOrder(120)]
 public class HomeButtonAfterFinalSession : MonoBehaviour
 {
     [Header("Refs")]
-    public ScoreManager score;               // перетащите ScoreManager из сцены
-    public CanvasGroup homeButtonGroup;      // CanvasGroup на объекте HomeButton
-    public GameObject homeButtonObject;      // сам HomeButton (если пусто — возьмём из CanvasGroup)
+    public ScoreManager score;               // ���������� ScoreManager �� �����
+    public CanvasGroup homeButtonGroup;      // CanvasGroup �� HomeButton
+    public GameObject homeButtonObject;      // ��� HomeButton (���� ����� � ������ �� CanvasGroup)
 
-    [Header("Behaviour")] public bool hideAtStart = true; public bool bringToFront = true;
+    [Header("Behaviour")]
+    public bool hideAtStart = true;
+    public bool bringToFront = true;
 
     private void Reset()
     {
@@ -38,8 +33,6 @@ public class HomeButtonAfterFinalSession : MonoBehaviour
     {
         if (!score) score = FindObjectOfType<ScoreManager>(true);
         if (score) score.OnSessionFinished.AddListener(OnSessionFinished);
-        else Debug.LogWarning("[HomeButtonAfterFinalSession] ScoreManager not found.");
-
         if (hideAtStart) Hide();
     }
 
@@ -50,33 +43,28 @@ public class HomeButtonAfterFinalSession : MonoBehaviour
 
     private void OnSessionFinished()
     {
-        // ждём кадр, чтобы ScoreManager успел сбросить suppressMenuOnEndOnce в false
+        // ��� 1 ����, ����� ScoreManager ����� ���������� LastSessionWasBetweenLevels
         StartCoroutine(ShowIfFinal());
     }
 
     private IEnumerator ShowIfFinal()
     {
-        yield return null; // один кадр
-        if (score != null && !score.suppressMenuOnEndOnce)
+        yield return null;
+        if (score != null && !score.LastSessionWasBetweenLevels)
         {
             Show();
         }
         else
         {
-            Debug.Log("[HomeButtonAfterFinalSession] Final not reached yet (between levels)");
+            // ������������ ����� � ������ �� ������
         }
     }
 
     public void Show()
     {
         var go = homeButtonObject ? homeButtonObject : (homeButtonGroup ? homeButtonGroup.gameObject : null);
-        if (!go)
-        {
-            Debug.LogWarning("[HomeButtonAfterFinalSession] HomeButton reference is not set.");
-            return;
-        }
+        if (!go) return;
 
-        // Убедимся, что есть EventSystem и GraphicRaycaster
         if (FindObjectOfType<EventSystem>() == null)
             Debug.LogWarning("[HomeButtonAfterFinalSession] No EventSystem found in scene.");
 
@@ -92,8 +80,6 @@ public class HomeButtonAfterFinalSession : MonoBehaviour
         var canvas = go.GetComponentInParent<Canvas>();
         if (canvas && !canvas.TryGetComponent<GraphicRaycaster>(out _))
             canvas.gameObject.AddComponent<GraphicRaycaster>();
-
-        Debug.Log("[HomeButtonAfterFinalSession] HomeButton shown");
     }
 
     public void Hide()
@@ -106,6 +92,5 @@ public class HomeButtonAfterFinalSession : MonoBehaviour
             homeButtonGroup.interactable = false;
             homeButtonGroup.blocksRaycasts = false;
         }
-        // Можно не отключать GameObject — так появление будет мгновенным через alpha.
     }
 }
