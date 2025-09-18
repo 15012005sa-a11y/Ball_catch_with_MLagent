@@ -10,10 +10,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using UnityEngine;
-using UnityEngine.UI;
 using TMPro;
+using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.UI;
 
 [RequireComponent(typeof(AudioSource))]
 public class ScoreManager : MonoBehaviour
@@ -159,6 +159,9 @@ public class ScoreManager : MonoBehaviour
         UpdateUI();
     }
 
+    // Вставьте этот метод в ваш ScoreManager.cs (замените существующий EndSession)
+    // Никаких дополнительных using не требуется: я использую fully-qualified имена там, где нужно.
+
     private void EndSession()
     {
         _sessionRunning = false;
@@ -166,7 +169,7 @@ public class ScoreManager : MonoBehaviour
         if (ballSpawner) ballSpawner.StopSpawning();
         if (motionLogger)
         {
-            string logName = "Motion_" + DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string logName = "Motion_" + System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
             motionLogger.StopLogging(logName);
         }
 
@@ -198,8 +201,18 @@ public class ScoreManager : MonoBehaviour
         float successRate = 0f;
         if (ballSpawner && ballSpawner.spawnInterval > 0f)
             successRate = _currentScore / (sessionDuration / ballSpawner.spawnInterval);
+
         float playTime = Mathf.Max(sessionDuration - _timer, 0f);
-        float avgReaction = _reactionTimes.Count > 0 ? _reactionTimes.Average() : 0f;
+
+        // Среднее время реакции без LINQ (чтобы не требовался using System.Linq)
+        float avgReaction = 0f;
+        if (_reactionTimes != null && _reactionTimes.Count > 0)
+        {
+            float sum = 0f;
+            for (int i = 0; i < _reactionTimes.Count; i++) sum += _reactionTimes[i];
+            avgReaction = sum / _reactionTimes.Count;
+        }
+
         if (exporter != null)
         {
             int pid = PatientManager.Instance ? PatientManager.Instance.CurrentPatientID : -1;
@@ -217,7 +230,7 @@ public class ScoreManager : MonoBehaviour
                 var dir = FindObjectOfType<LevelDirector>(true);
                 if (dir != null)
                 {
-                    var m = dir.GetType().GetMethod("StartRestThenLevel2External", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                    var m = dir.GetType().GetMethod("StartRestThenLevel2External", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
                     if (m != null)
                     {
                         Debug.Log("[ScoreManager] Bridge → StartRestThenLevel2External()");
@@ -225,7 +238,7 @@ public class ScoreManager : MonoBehaviour
                     }
                     else
                     {
-                        var m2 = dir.GetType().GetMethod("StartLevel2", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                        var m2 = dir.GetType().GetMethod("StartLevel2", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
                         if (m2 != null)
                         {
                             Debug.LogWarning("[ScoreManager] Bridge fallback → StartLevel2() without rest");
@@ -236,9 +249,10 @@ public class ScoreManager : MonoBehaviour
                 }
                 else Debug.LogWarning("[ScoreManager] Bridge: LevelDirector not found");
             }
-            catch (Exception e) { Debug.LogWarning($"[ScoreManager] Bridge error: {e.Message}"); }
+            catch (System.Exception e) { Debug.LogWarning($"[ScoreManager] Bridge error: {e.Message}"); }
         }
     }
+
 
     // ==== Gameplay API
     public void AddScore(int points)

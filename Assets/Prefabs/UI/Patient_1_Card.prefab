@@ -1226,12 +1226,13 @@ GameObject:
   - component: {fileID: 8900822180499233440}
   - component: {fileID: 8900822180499233447}
   - component: {fileID: 8900822180499233446}
-  - component: {fileID: 8900822180499233445}
   - component: {fileID: 8900822180499233441}
   - component: {fileID: 8900822180499233443}
   - component: {fileID: 8900822180499233442}
   - component: {fileID: 4435498551994007688}
   - component: {fileID: 6443761192162380165}
+  - component: {fileID: -4490855155591151718}
+  - component: {fileID: 1442561730823770616}
   m_Layer: 5
   m_Name: Patient_1_Card
   m_TagString: Untagged
@@ -1315,32 +1316,6 @@ MonoBehaviour:
   m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
   m_EffectDistance: {x: 0, y: -6}
   m_UseGraphicAlpha: 1
---- !u!114 &8900822180499233445
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8900822180499233451}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 59f8146938fff824cb5fd77236b75775, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_Padding:
-    m_Left: 16
-    m_Right: 16
-    m_Top: 16
-    m_Bottom: 16
-  m_ChildAlignment: 0
-  m_Spacing: 16
-  m_ChildForceExpandWidth: 1
-  m_ChildForceExpandHeight: 1
-  m_ChildControlWidth: 0
-  m_ChildControlHeight: 0
-  m_ChildScaleWidth: 0
-  m_ChildScaleHeight: 0
-  m_ReverseArrangement: 0
 --- !u!114 &8900822180499233441
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1447,6 +1422,7 @@ MonoBehaviour:
   startTMP: {fileID: 0}
   startUGUI: {fileID: 0}
   deleteButton: {fileID: 0}
+  confirmOverlay: {fileID: 0}
 --- !u!114 &6443761192162380165
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1467,6 +1443,34 @@ MonoBehaviour:
   m_FlexibleWidth: 0
   m_FlexibleHeight: 0
   m_LayoutPriority: 1
+--- !u!114 &-4490855155591151718
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8900822180499233451}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b5b0fa44bf689014c8bc176b079904c7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  patientId: 0
+  selectedMarker: {fileID: 0}
+--- !u!114 &1442561730823770616
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8900822180499233451}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f6ec3e7bdacdff46943c6df4e9b5fdc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  selectButton: {fileID: -4490855155591151718}
+  nameText: {fileID: 0}
 --- !u!1 &8900822180593274231
 GameObject:
   m_ObjectHideFlags: 0

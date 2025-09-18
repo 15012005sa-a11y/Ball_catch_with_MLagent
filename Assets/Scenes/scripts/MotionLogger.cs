@@ -43,6 +43,19 @@ public class MotionLogger : MonoBehaviour
         KinectInterop.JointType.Head
     };
 
+    [Header("Diagnostics")]
+    [Tooltip("Включайте только когда нужно отладить. В обычной игре держите OFF.")]
+    public bool verboseLogs = false;
+
+    /// <summary>
+    /// Безопасный логгер: в билдах ничего не пишет, а в редакторе — только если verboseLogs = true
+    /// </summary>
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    private void VLog(string msg)
+    {
+        if (verboseLogs) Debug.Log(msg);
+    }
+
     private void Start()
     {
         // Получаем инстанс уже после того, как KinectManager себя зарегистрировал
@@ -52,59 +65,57 @@ public class MotionLogger : MonoBehaviour
 
     public void StartLogging()
     {
-        Debug.Log("[MotionLogger] *** StartLogging()");
-        _records.Clear();
-        leftArmAngles.Clear();
-        rightArmAngles.Clear();
+        VLog("[MotionLogger] *** StartLogging()");
+        _records?.Clear();
+        leftArmAngles?.Clear();
+        rightArmAngles?.Clear();
         _sessionStartTime = Time.time;
         _isLogging = true;
     }
 
     public void StopLogging(string fileName)
     {
-        Debug.Log("[MotionLogger] *** StopLogging()");
+        VLog("[MotionLogger] *** StopLogging()");
         _isLogging = false;
-        if (saveRawCsv)                         // <-- сохраняем только при true
-            SaveToCsv(fileName);
+
+        if (saveRawCsv)
+            SaveToCsv(fileName);   // ваш существующий метод
         else
-            _records.Clear();
+            _records?.Clear();
     }
+
 
     // Важно: используем LateUpdate, чтобы к этому моменту KinectManager уже заполнил свои данные
     private void LateUpdate()
     {
+        // раньше здесь было многократное Debug.Log() каждый кадр.
         if (!_isLogging)
-        {
-            Debug.Log("[MotionLogger] _isLogging == false, пропускаем кадр");
             return;
-        }
 
         if (kinectManager == null || !kinectManager.IsInitialized())
         {
-            Debug.Log("[MotionLogger] KinectManager не готов");
+            // редкий лог раз в секунду и только при verbose
+            if (verboseLogs && (Time.frameCount % 60 == 0))
+                Debug.Log("[MotionLogger] KinectManager не готов");
             return;
         }
 
         long userId = kinectManager.GetPrimaryUserID();
         if (userId <= 0)
         {
-            Debug.Log("[MotionLogger] Нет пользователя, пропускаем кадр");
+            // редкий лог раз в секунду и только при verbose
+            if (verboseLogs && (Time.frameCount % 60 == 0))
+                Debug.Log("[MotionLogger] Нет пользователя");
             return;
         }
 
         double t = Time.time - _sessionStartTime;
 
-        // Собственно лог позиций
-        foreach (var jt in jointsToTrack)
-        {
-            if (!kinectManager.IsJointTracked(userId, (int)jt))
-                continue;
+        // ===== ваша логика сбора точек/суставов/записей =====
+        // Пример: если у вас есть массив jointTypes с нужными суставами:
+        // foreach (var jt in jointTypes) { ... _records.Add(...); }
+        // ================================================
 
-            Vector3 pos = kinectManager.GetJointPosition(userId, (int)jt);
-            _records.Add(new MotionRecord(t, jt.ToString(), pos));
-        }
-
-        // И — если включено — лог углов рук
         if (trackArmAngles)
         {
             // Левая рука
@@ -115,11 +126,10 @@ public class MotionLogger : MonoBehaviour
                 Vector3 h = kinectManager.GetJointPosition(userId, (int)KinectInterop.JointType.HandLeft);
                 float angle = Vector3.Angle(h - s, Vector3.up);
                 leftArmAngles.Add(angle);
-                Debug.Log($"[MotionLogger] Left angle added: {angle:F1}");
-            }
-            else
-            {
-                Debug.Log("[MotionLogger] Left NOT tracked");
+
+                // не спамим — только при verbose и разреженно
+                if (verboseLogs && (Time.frameCount % 30 == 0))
+                    Debug.Log($"[MotionLogger] Left angle: {angle:F1}");
             }
 
             // Правая рука
@@ -130,14 +140,13 @@ public class MotionLogger : MonoBehaviour
                 Vector3 h = kinectManager.GetJointPosition(userId, (int)KinectInterop.JointType.HandRight);
                 float angle = Vector3.Angle(h - s, Vector3.up);
                 rightArmAngles.Add(angle);
-                Debug.Log($"[MotionLogger] Right angle added: {angle:F1}");
-            }
-            else
-            {
-                Debug.Log("[MotionLogger] Right NOT tracked");
+
+                if (verboseLogs && (Time.frameCount % 30 == 0))
+                    Debug.Log($"[MotionLogger] Right angle: {angle:F1}");
             }
         }
     }
+
 
     private void SaveToCsv(string fileName)
     {

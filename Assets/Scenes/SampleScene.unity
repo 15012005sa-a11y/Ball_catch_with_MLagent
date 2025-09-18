@@ -3692,6 +3692,80 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 373303659}
   m_CullTransparentMesh: 1
+--- !u!1 &380697228
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 380697230}
+  - component: {fileID: 380697229}
+  - component: {fileID: 380697231}
+  m_Layer: 0
+  m_Name: SessionWriter
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &380697229
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 380697228}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b59f43173506474a9e812213d193c01, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  patientManager: {fileID: 1808713654}
+  scoreManager: {fileID: 1598290629}
+  motionLogger: {fileID: 1558489010}
+  logDetails: 1
+--- !u!4 &380697230
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 380697228}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1870.1531, y: 1059.0797, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 20
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &380697231
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 380697228}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f8437b1e010524a4897e6b0f26bccab3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  patientManager: {fileID: 1808713654}
+  autoSeedOnPlay: 1
+  clearBefore: 1
+  daysBack: 14
+  sessionsPerDay: {x: 1, y: 2}
+  durationSecRange: {x: 45, y: 120}
+  baseAttempts: 20
+  meanSuccess: 0.7
+  successDev: 0.15
+  meanRtMs: 650
+  rtNoiseMs: 250
+  reactionSamples: {x: 12, y: 26}
+  seed: 12345
 --- !u!1 &383992144
 GameObject:
   m_ObjectHideFlags: 0
@@ -19038,8 +19112,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1808713655}
+  - component: {fileID: 1808713656}
   - component: {fileID: 1808713654}
+  - component: {fileID: 1808713655}
   m_Layer: 0
   m_Name: PatientManager
   m_TagString: Untagged
@@ -19079,21 +19154,47 @@ MonoBehaviour:
       restTimeSec: 60
       redChance: 0.35
   selectedIndex: 0
---- !u!4 &1808713655
-Transform:
+--- !u!114 &1808713655
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1808713653}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 66f339cddeb2c1946901760f47380b00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  patientManager: {fileID: 0}
+  periodDropdown: {fileID: 0}
+  defaultPeriod: 0
+  kpiDuration: {fileID: 0}
+  kpiAccuracy: {fileID: 0}
+  kpiMeanRT: {fileID: 0}
+  kpiMedianSD: {fileID: 0}
+  reactionChart: {fileID: 0}
+  accuracyChart: {fileID: 0}
+--- !u!224 &1808713656
+RectTransform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1808713653}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.05687557, y: 1.0356791, z: 0.77691394}
+  m_LocalPosition: {x: 0, y: 0, z: 0.77691394}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 12
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0.05687557, y: 1.0356791}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1834803820
 GameObject:
   m_ObjectHideFlags: 0
