@@ -14,21 +14,21 @@ public class ExcelExporter : MonoBehaviour
     private const string SEP = ";";
 
     // Заголовок — как на вашем образце
+    // ОБНОВЛЁННЫЙ хедер: добавили "Ball speed" справа от Left hand
+    // Обновлённый заголовок
     private const string Header =
-        "PatientID;Date;Score;SuccessRate;Reaction;Right hand;Left hand";
+        "PatientID;Date;Score;SuccessRate;Reaction;Right hand;Left hand;Ball speed";
 
-    /// <summary>
-    /// Добавляет строку с результатами одной сессии пациента в его CSV.
-    /// </summary>
     public void ExportSession(
-        int patientId,
-        int score,
-        float successRate,
-        float playTimeSec,      // оставлено для совместимости сигнатуры
-        float avgReactionSec,
-        float avgRightAngle,
-        float avgLeftAngle,
-        string patientDisplayName = null)
+    int patientId,
+    int score,
+    float successRate,
+    float playTimeSec,      // для совместимости
+    float avgReactionSec,
+    float avgRightAngle,
+    float avgLeftAngle,
+    float ballSpeed,
+    string patientDisplayName = null)
     {
         try
         {
@@ -37,30 +37,21 @@ public class ExcelExporter : MonoBehaviour
 
             string path = GetPatientCsvPathByName(patientDisplayName);
             EnsureDirectory(Path.GetDirectoryName(path));
+            EnsureHeaderUpToDate(path); // ваш helper
 
-            bool needHeader = !File.Exists(path);
-            using var sw = new StreamWriter(
-                path,
-                append: true,
-                new UTF8Encoding(encoderShouldEmitUTF8Identifier: true) // BOM, чтобы Excel точно понял кодировку
-            );
-
-            if (needHeader)
-                sw.WriteLine(Header);
-
-            // Формат строго под скрин: ; как разделитель, запятая в числах
             string line = string.Join(SEP, new[]
             {
-                patientId.ToString(CsvCulture),
-                DateTime.Now.ToString("dd.MM.yyyy", CsvCulture),
-                score.ToString(CsvCulture),
-                successRate.ToString("0.##", CsvCulture),
-                avgReactionSec.ToString("0.###", CsvCulture),
-                avgRightAngle.ToString("0.###", CsvCulture),
-                avgLeftAngle.ToString("0.###", CsvCulture),
-            });
+            patientId.ToString(CsvCulture),
+            DateTime.Now.ToString("dd.MM.yyyy", CsvCulture),
+            score.ToString(CsvCulture),
+            successRate.ToString("0.##",   CsvCulture),
+            avgReactionSec.ToString("0.###", CsvCulture),
+            avgRightAngle.ToString("0.###",  CsvCulture),
+            avgLeftAngle.ToString("0.###",   CsvCulture),
+            ballSpeed.ToString("0.###",      CsvCulture),
+        });
 
-            sw.WriteLine(line);
+            AppendCsvLineWithRetry(path, line); // ваш helper
         }
         catch (Exception e)
         {
@@ -68,6 +59,88 @@ public class ExcelExporter : MonoBehaviour
         }
     }
 
+    // создаёт файл c заголовком, безопасно, с повторными попытками
+    // Создаёт файл с хедером или «апгрейдит» старый (делает .bak)
+    private void EnsureHeaderUpToDate(string path)
+    {
+        try
+        {
+            if (!File.Exists(path))
+            {
+                using var fs = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
+                using var sw = new StreamWriter(fs, new UTF8Encoding(true));
+                sw.WriteLine(Header);
+                return;
+            }
+
+            // файл есть — проверяем первую строку
+            using (var sr = new StreamReader(path, true))
+            {
+                string first = sr.ReadLine() ?? string.Empty;
+                if (first.Trim() == Header) return;
+            }
+
+            // старый формат — делаем бэкап и пишем новый заголовок
+            string bak = path + ".bak";
+            try { if (File.Exists(bak)) File.Delete(bak); } catch { }
+            File.Move(path, bak);
+            using var fs2 = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
+            using var sw2 = new StreamWriter(fs2, new UTF8Encoding(true));
+            sw2.WriteLine(Header);
+        }
+        catch (IOException) { /* игнор, ниже всё равно попробуем дозапись с ретраями */ }
+    }
+
+    // Дозапись строки в CSV с ретраями и FileShare.Read
+    private void AppendCsvLineWithRetry(string path, string line)
+    {
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            try
+            {
+                using var fs = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read);
+                using var sw = new StreamWriter(fs, new UTF8Encoding(true));
+                sw.WriteLine(line);
+                return;
+            }
+            catch (IOException)
+            {
+                if (attempt == 7) throw;
+                System.Threading.Thread.Sleep(200); // 0.2s
+            }
+        }
+    }
+
+    // --- перегрузка для старых вызовов без ballSpeed ---
+    public void ExportSession(
+        int patientId, int score, float successRate, float playTimeSec,
+        float avgReactionSec, float avgRightAngle, float avgLeftAngle,
+        string patientDisplayName = null)
+    {
+        ExportSession(patientId, score, successRate, playTimeSec,
+                      avgReactionSec, avgRightAngle, avgLeftAngle,
+                      0f, patientDisplayName);
+    }
+
+    // --- helper: создаёт файл с новым хедером или «апгрейдит» старый ---
+    private void EnsureHeader(string path)
+    {
+        if (!File.Exists(path))
+        {
+            File.WriteAllText(path, Header + "\n", new UTF8Encoding(true));
+            return;
+        }
+
+        using var sr = new StreamReader(path, true);
+        string first = sr.ReadLine() ?? string.Empty;
+        if (first.Trim() == Header) return; // уже новый формат
+
+        // старый хедер → сохраняем резервную копию и создаём новый файл с хедером
+        string bak = path + ".bak";
+        try { if (File.Exists(bak)) File.Delete(bak); } catch { }
+        File.Move(path, bak);
+        File.WriteAllText(path, Header + "\n", new UTF8Encoding(true));
+    }
     // ---------- ВСПОМОГАТЕЛЬНОЕ ----------
 
     public static string GetPatientCsvPathById(int patientId)
