@@ -83,6 +83,8 @@ public class ScoreManager : MonoBehaviour
     readonly List<float> _aggReactions = new();
     readonly List<float> _aggLeft = new();
     readonly List<float> _aggRight = new();
+    // чтобы понимать, сбрасывался ли счёт между уровнями
+    int _aggFirstStageEndScore = 0;   // счёт на конце L1
 
     // ==== Unity lifecycle
     private void Awake()
@@ -197,11 +199,15 @@ public class ScoreManager : MonoBehaviour
 
     void AggAddCurrentStage(float playTime, float ballSpeed)
     {
+        // если это первый вызов — запоминаем счёт на конце L1
+        if (!_aggActive)
+            _aggFirstStageEndScore = _currentScore;
+
         _aggActive = true;
-        _aggScore += _currentScore;
+
+        _aggScore += _currentScore;        // суммарный на случай сброса
         _aggPlayTime += playTime;
 
-        // попытки (если нет явного счётчика — оцениваем по интервалу спавна)
         int attempts = 0;
         if (ballSpawner && ballSpawner.spawnInterval > 0f)
             attempts = Mathf.Max(1, Mathf.RoundToInt(playTime / ballSpawner.spawnInterval));
@@ -217,6 +223,7 @@ public class ScoreManager : MonoBehaviour
         }
         if (ballSpeed > 0f) { _aggBallSpeedSum += ballSpeed; _aggBallSpeedN++; }
     }
+
 
     (float avg, float sum) Avg(List<float> xs)
     {
@@ -235,12 +242,10 @@ public class ScoreManager : MonoBehaviour
             string logName = "Motion_" + System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
             motionLogger.StopLogging(logName);
         }
-
         // best score
         int best = PlayerPrefs.GetInt("BestScore", 0);
         if (_currentScore > best) { PlayerPrefs.SetInt("BestScore", _currentScore); PlayerPrefs.Save(); }
 
-        // Решение, показывать ли меню (между уровнями его скрываем)
         bool suppress = suppressMenuOnEndOnce;
         LastSessionWasBetweenLevels = suppress;
         suppressMenuOnEndOnce = false;
@@ -253,99 +258,86 @@ public class ScoreManager : MonoBehaviour
         }
         else Debug.Log("[ScoreManager] Menu suppressed (between levels)");
 
-        // метрики текущего этапа
-        float playTime = Mathf.Max(sessionDuration - _timer, 0f);
-        float avgReaction = 0f;
+        // ---------- метрики ТЕКУЩЕГО ЭТАПА ----------
+        float stagePlayTime = Mathf.Max(sessionDuration - _timer, 0f);
+
+        float stageAvgReaction = 0f;
         if (_reactionTimes != null && _reactionTimes.Count > 0)
         {
-            float s = 0f; for (int i = 0; i < _reactionTimes.Count; i++) s += _reactionTimes[i];
-            avgReaction = s / _reactionTimes.Count;
+            float sum = 0f; for (int i = 0; i < _reactionTimes.Count; i++) sum += _reactionTimes[i];
+            stageAvgReaction = sum / _reactionTimes.Count;
         }
-        float rightAvg = 0f, leftAvg = 0f;
+
+        float stageRightAvg = 0f, stageLeftAvg = 0f;
         if (motionLogger != null)
         {
             if (motionLogger.rightArmAngles != null && motionLogger.rightArmAngles.Count > 0)
-            { float s = 0; for (int i = 0; i < motionLogger.rightArmAngles.Count; i++) s += motionLogger.rightArmAngles[i]; rightAvg = s / motionLogger.rightArmAngles.Count; }
+            { float s = 0; for (int i = 0; i < motionLogger.rightArmAngles.Count; i++) s += motionLogger.rightArmAngles[i]; stageRightAvg = s / motionLogger.rightArmAngles.Count; }
             if (motionLogger.leftArmAngles != null && motionLogger.leftArmAngles.Count > 0)
-            { float s = 0; for (int i = 0; i < motionLogger.leftArmAngles.Count; i++) s += motionLogger.leftArmAngles[i]; leftAvg = s / motionLogger.leftArmAngles.Count; }
+            { float s = 0; for (int i = 0; i < motionLogger.leftArmAngles.Count; i++) s += motionLogger.leftArmAngles[i]; stageLeftAvg = s / motionLogger.leftArmAngles.Count; }
         }
-        float ballSpeed = GetBallSpeedForExport();
 
-        // ---- АГРЕГАЦИЯ ----
-        if (suppress) // между уровнями: копим и НЕ пишем в CSV
+        float stageSuccessRate = 0f;
+        if (ballSpawner && ballSpawner.spawnInterval > 0f)
+            stageSuccessRate = _currentScore / (sessionDuration / ballSpawner.spawnInterval);
+
+        float stageBallSpeed = GetBallSpeedForExport();
+
+        // ---------- АГРЕГАЦИЯ ----------
+        if (suppress)
         {
-            AggAddCurrentStage(playTime, ballSpeed);
+            // копим метрики L1 и выходим без записи CSV
+            AggAddCurrentStage(stagePlayTime, stageBallSpeed);
             Debug.Log("[ScoreManager] Aggregating stage (L1) — CSV not written yet");
         }
         else
         {
-            if (_aggActive) // второй (последний) этап → дополняем и пишем суммарно
+            if (_aggActive)
             {
-                AggAddCurrentStage(playTime, ballSpeed);
+                // второй (последний) этап → дополняем агрегатор и пишем одну строку
+                AggAddCurrentStage(stagePlayTime, stageBallSpeed);
 
-                // сводные метрики
-                float successRateAgg = (_aggAttempts > 0) ? (float)_aggScore / _aggAttempts : 0f;
-                var (avgReac, _) = Avg(_aggReactions);
-                var (avgLeft, _) = Avg(_aggLeft);
-                var (avgRight, _) = Avg(_aggRight);
-                float ballSpeedAgg = (_aggBallSpeedN > 0) ? _aggBallSpeedSum / _aggBallSpeedN : ballSpeed;
+                float aggSuccessRate = (_aggAttempts > 0) ? (float)_aggScore / _aggAttempts : 0f;
+                // средние по всем собранным точкам
+                float aggAvgReaction = 0f, aggAvgLeft = 0f, aggAvgRight = 0f;
+                if (_aggReactions.Count > 0) { float s = 0; for (int i = 0; i < _aggReactions.Count; i++) s += _aggReactions[i]; aggAvgReaction = s / _aggReactions.Count; }
+                if (_aggLeft.Count > 0) { float s = 0; for (int i = 0; i < _aggLeft.Count; i++) s += _aggLeft[i]; aggAvgLeft = s / _aggLeft.Count; }
+                if (_aggRight.Count > 0) { float s = 0; for (int i = 0; i < _aggRight.Count; i++) s += _aggRight[i]; aggAvgRight = s / _aggRight.Count; }
+
+                float aggBallSpeed = (_aggBallSpeedN > 0) ? _aggBallSpeedSum / _aggBallSpeedN : stageBallSpeed;
 
                 if (exporter != null)
                 {
                     int pid = PatientManager.Instance ? PatientManager.Instance.CurrentPatientID : -1;
-                    exporter.ExportSession(pid, _aggScore, successRateAgg, _aggPlayTime,
-                                           avgReac, avgRight, avgLeft, ballSpeedAgg);
+
+                    // >>> НОВОЕ: общий счёт за игру
+                    // если во 2-м уровне счётчик НЕ сбрасывался (S2 >= S1), берём _currentScore (счёт конца L2)
+                    // если сбрасывался — берём сумму L1+L2 (_aggScore)
+                    int finalScore = (_currentScore >= _aggFirstStageEndScore)
+                        ? _currentScore
+                        : _aggScore;
+
+                    exporter.ExportSession(pid, finalScore, aggSuccessRate, _aggPlayTime,
+                                           aggAvgReaction, aggAvgRight, aggAvgLeft, aggBallSpeed);
                 }
                 AggReset();
             }
             else
             {
-                // одиночный уровень (старое поведение — если без L2)
-                float successRate = 0f;
-                if (ballSpawner && ballSpawner.spawnInterval > 0f)
-                    successRate = _currentScore / (sessionDuration / ballSpawner.spawnInterval);
-
+                // одиночный запуск (только один уровень)
                 if (exporter != null)
                 {
                     int pid = PatientManager.Instance ? PatientManager.Instance.CurrentPatientID : -1;
-                    exporter.ExportSession(pid, _currentScore, successRate, playTime,
-                                           avgReaction, rightAvg, leftAvg, ballSpeed);
+                    exporter.ExportSession(pid, _currentScore, stageSuccessRate, stagePlayTime,
+                                           stageAvgReaction, stageRightAvg, stageLeftAvg, stageBallSpeed);
                 }
             }
         }
 
-        // простые метрики
-        float successRate = 0f;
-        if (ballSpawner && ballSpawner.spawnInterval > 0f)
-            successRate = _currentScore / (sessionDuration / ballSpawner.spawnInterval);
-
-        float playTime = Mathf.Max(sessionDuration - _timer, 0f);
-        float avgReaction = _reactionTimes.Count > 0 ? _reactionTimes.Average() : 0f;
-
-        // >>> ДОБАВЛЕНО: средние углы рук из MotionLogger
-        float avgRight = 0f;
-        float avgLeft = 0f;
-
-        if (motionLogger != null)
-        {
-            var right = motionLogger.rightArmAngles;
-            var left = motionLogger.leftArmAngles;
-
-            if (right != null && right.Count > 0) avgRight = right.Average();
-            if (left != null && left.Count > 0) avgLeft = left.Average();
-        }
-
-        if (exporter != null)
-        {
-            int pid = PatientManager.Instance ? PatientManager.Instance.CurrentPatientID : -1;
-            exporter.ExportSession(pid, _currentScore, successRate, playTime, avgReaction, avgRight, avgLeft);
-        }
-
-
         Debug.Log("[ScoreManager] Session END");
         OnSessionFinished?.Invoke();
 
-        // мост между уровнями — оставляем как у вас
+        // мост между уровнями — без изменений
         if (suppress)
         {
             try

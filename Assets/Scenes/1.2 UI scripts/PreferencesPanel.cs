@@ -278,17 +278,12 @@ public class PreferencesPanel : MonoBehaviour
             tune.speedDecreaseFactor = Mathf.Clamp(v, 0.1f, 1f);
         }
 
-        // Применить в живой компонент
-        if (spawner)
-        {
-            spawner.spawnInterval = tune.spawnInterval;
-            spawner.ballSpeed = tune.ballSpeed;
-            spawner.speedIncreaseFactor = tune.speedIncreaseFactor;
-            spawner.speedDecreaseFactor = tune.speedDecreaseFactor;
+        // сначала сохраним, потом применим
+        SaveSpawnerTuning(p.id, tune);
 
-            // на всякий случай, если есть метод ApplySettings — пусть тоже выполнится
-            spawner.ApplySettings(settings);
-        }
+        // ВАЖНО: применяем ИМЕННО тюнинг, а не patient settings,
+        // чтобы ApplySettings взяла SpawnInterval/BallSpeed из tune
+        if (spawner) spawner.ApplySettings(tune);
 
         // ---- 3) сохранить на диск обе части ----
         SaveSettingsToDisk(p.id, settings);
