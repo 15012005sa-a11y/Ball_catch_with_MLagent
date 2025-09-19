@@ -219,6 +219,34 @@ public class ScoreManager : MonoBehaviour
             exporter.ExportSession(pid, _currentScore, successRate, playTime, avgReaction, 0f, 0f);
         }
 
+        // простые метрики
+        float successRate = 0f;
+        if (ballSpawner && ballSpawner.spawnInterval > 0f)
+            successRate = _currentScore / (sessionDuration / ballSpawner.spawnInterval);
+
+        float playTime = Mathf.Max(sessionDuration - _timer, 0f);
+        float avgReaction = _reactionTimes.Count > 0 ? _reactionTimes.Average() : 0f;
+
+        // >>> ДОБАВЛЕНО: средние углы рук из MotionLogger
+        float avgRight = 0f;
+        float avgLeft = 0f;
+
+        if (motionLogger != null)
+        {
+            var right = motionLogger.rightArmAngles;
+            var left = motionLogger.leftArmAngles;
+
+            if (right != null && right.Count > 0) avgRight = right.Average();
+            if (left != null && left.Count > 0) avgLeft = left.Average();
+        }
+
+        if (exporter != null)
+        {
+            int pid = PatientManager.Instance ? PatientManager.Instance.CurrentPatientID : -1;
+            exporter.ExportSession(pid, _currentScore, successRate, playTime, avgReaction, avgRight, avgLeft);
+        }
+
+
         Debug.Log("[ScoreManager] Session END");
         OnSessionFinished?.Invoke(); // событие для UI и HomeButton
 
