@@ -56,7 +56,6 @@ public class ScoreManager : MonoBehaviour
     [SerializeField] private int level2Duration = 120;
     [SerializeField] private int restSeconds = 60; // пауза между уровнями
     public int RestSeconds => restSeconds;
-
     public int currentLevel = 1; // 1 или 2
 
     // Подавить показ меню при ближайшем завершении (для перехода 1→Rest→2)
@@ -74,6 +73,16 @@ public class ScoreManager : MonoBehaviour
     private float _timer;
     private bool _sessionRunning;
     private bool _resetScoreOnStart = true;
+
+    // ---- агрегатор многоэтапной сессии (L1+L2 в одну строку) ----
+    bool _aggActive;
+    int _aggScore;
+    float _aggPlayTime;
+    int _aggAttempts;                 // сколько мячей было предъявлено (оценка)
+    float _aggBallSpeedSum; int _aggBallSpeedN;
+    readonly List<float> _aggReactions = new();
+    readonly List<float> _aggLeft = new();
+    readonly List<float> _aggRight = new();
 
     // ==== Unity lifecycle
     private void Awake()
@@ -159,8 +168,62 @@ public class ScoreManager : MonoBehaviour
         UpdateUI();
     }
 
-    // Вставьте этот метод в ваш ScoreManager.cs (замените существующий EndSession)
-    // Никаких дополнительных using не требуется: я использую fully-qualified имена там, где нужно.
+    private float GetBallSpeedForExport()
+    {
+        if (ballSpawner == null) return 0f;
+
+        var t = ballSpawner.GetType();
+
+        // пробуем поля
+        var f = t.GetField("moveSpeed") ?? t.GetField("speed") ?? t.GetField("ballSpeed");
+        if (f != null && f.FieldType == typeof(float))
+            return (float)f.GetValue(ballSpawner);
+
+        // пробуем свойства
+        var p = t.GetProperty("MoveSpeed") ?? t.GetProperty("Speed") ?? t.GetProperty("BallSpeed");
+        if (p != null && p.PropertyType == typeof(float))
+            return (float)p.GetValue(ballSpawner, null);
+
+        return 0f;
+    }
+
+    void AggReset()
+    {
+        _aggActive = false;
+        _aggScore = 0; _aggPlayTime = 0; _aggAttempts = 0;
+        _aggBallSpeedSum = 0; _aggBallSpeedN = 0;
+        _aggReactions.Clear(); _aggLeft.Clear(); _aggRight.Clear();
+    }
+
+    void AggAddCurrentStage(float playTime, float ballSpeed)
+    {
+        _aggActive = true;
+        _aggScore += _currentScore;
+        _aggPlayTime += playTime;
+
+        // попытки (если нет явного счётчика — оцениваем по интервалу спавна)
+        int attempts = 0;
+        if (ballSpawner && ballSpawner.spawnInterval > 0f)
+            attempts = Mathf.Max(1, Mathf.RoundToInt(playTime / ballSpawner.spawnInterval));
+        else
+            attempts = Mathf.Max(_currentScore, 1);
+        _aggAttempts += attempts;
+
+        if (_reactionTimes != null) _aggReactions.AddRange(_reactionTimes);
+        if (motionLogger != null)
+        {
+            if (motionLogger.leftArmAngles != null) _aggLeft.AddRange(motionLogger.leftArmAngles);
+            if (motionLogger.rightArmAngles != null) _aggRight.AddRange(motionLogger.rightArmAngles);
+        }
+        if (ballSpeed > 0f) { _aggBallSpeedSum += ballSpeed; _aggBallSpeedN++; }
+    }
+
+    (float avg, float sum) Avg(List<float> xs)
+    {
+        if (xs == null || xs.Count == 0) return (0f, 0f);
+        float s = 0f; for (int i = 0; i < xs.Count; i++) s += xs[i];
+        return (s / xs.Count, s);
+    }
 
     private void EndSession()
     {
@@ -175,16 +238,12 @@ public class ScoreManager : MonoBehaviour
 
         // best score
         int best = PlayerPrefs.GetInt("BestScore", 0);
-        if (_currentScore > best)
-        {
-            PlayerPrefs.SetInt("BestScore", _currentScore);
-            PlayerPrefs.Save();
-        }
+        if (_currentScore > best) { PlayerPrefs.SetInt("BestScore", _currentScore); PlayerPrefs.Save(); }
 
         // Решение, показывать ли меню (между уровнями его скрываем)
-        bool suppress = suppressMenuOnEndOnce;            // было
-        LastSessionWasBetweenLevels = suppress;           // НОВОЕ: запоминаем, что это был межуровневый финиш
-        suppressMenuOnEndOnce = false;                    // одноразовый флаг сбрасываем
+        bool suppress = suppressMenuOnEndOnce;
+        LastSessionWasBetweenLevels = suppress;
+        suppressMenuOnEndOnce = false;
 
         if (!suppress)
         {
@@ -192,31 +251,67 @@ public class ScoreManager : MonoBehaviour
             if (startButton) startButton.SetActive(showStartButtonOnMenu);
             if (graphButton) graphButton.SetActive(showGraphButtonOnMenu);
         }
-        else
-        {
-            Debug.Log("[ScoreManager] Menu suppressed (between levels)");
-        }
+        else Debug.Log("[ScoreManager] Menu suppressed (between levels)");
 
-        // простые метрики
-        float successRate = 0f;
-        if (ballSpawner && ballSpawner.spawnInterval > 0f)
-            successRate = _currentScore / (sessionDuration / ballSpawner.spawnInterval);
-
+        // метрики текущего этапа
         float playTime = Mathf.Max(sessionDuration - _timer, 0f);
-
-        // Среднее время реакции без LINQ (чтобы не требовался using System.Linq)
         float avgReaction = 0f;
         if (_reactionTimes != null && _reactionTimes.Count > 0)
         {
-            float sum = 0f;
-            for (int i = 0; i < _reactionTimes.Count; i++) sum += _reactionTimes[i];
-            avgReaction = sum / _reactionTimes.Count;
+            float s = 0f; for (int i = 0; i < _reactionTimes.Count; i++) s += _reactionTimes[i];
+            avgReaction = s / _reactionTimes.Count;
         }
-
-        if (exporter != null)
+        float rightAvg = 0f, leftAvg = 0f;
+        if (motionLogger != null)
         {
-            int pid = PatientManager.Instance ? PatientManager.Instance.CurrentPatientID : -1;
-            exporter.ExportSession(pid, _currentScore, successRate, playTime, avgReaction, 0f, 0f);
+            if (motionLogger.rightArmAngles != null && motionLogger.rightArmAngles.Count > 0)
+            { float s = 0; for (int i = 0; i < motionLogger.rightArmAngles.Count; i++) s += motionLogger.rightArmAngles[i]; rightAvg = s / motionLogger.rightArmAngles.Count; }
+            if (motionLogger.leftArmAngles != null && motionLogger.leftArmAngles.Count > 0)
+            { float s = 0; for (int i = 0; i < motionLogger.leftArmAngles.Count; i++) s += motionLogger.leftArmAngles[i]; leftAvg = s / motionLogger.leftArmAngles.Count; }
+        }
+        float ballSpeed = GetBallSpeedForExport();
+
+        // ---- АГРЕГАЦИЯ ----
+        if (suppress) // между уровнями: копим и НЕ пишем в CSV
+        {
+            AggAddCurrentStage(playTime, ballSpeed);
+            Debug.Log("[ScoreManager] Aggregating stage (L1) — CSV not written yet");
+        }
+        else
+        {
+            if (_aggActive) // второй (последний) этап → дополняем и пишем суммарно
+            {
+                AggAddCurrentStage(playTime, ballSpeed);
+
+                // сводные метрики
+                float successRateAgg = (_aggAttempts > 0) ? (float)_aggScore / _aggAttempts : 0f;
+                var (avgReac, _) = Avg(_aggReactions);
+                var (avgLeft, _) = Avg(_aggLeft);
+                var (avgRight, _) = Avg(_aggRight);
+                float ballSpeedAgg = (_aggBallSpeedN > 0) ? _aggBallSpeedSum / _aggBallSpeedN : ballSpeed;
+
+                if (exporter != null)
+                {
+                    int pid = PatientManager.Instance ? PatientManager.Instance.CurrentPatientID : -1;
+                    exporter.ExportSession(pid, _aggScore, successRateAgg, _aggPlayTime,
+                                           avgReac, avgRight, avgLeft, ballSpeedAgg);
+                }
+                AggReset();
+            }
+            else
+            {
+                // одиночный уровень (старое поведение — если без L2)
+                float successRate = 0f;
+                if (ballSpawner && ballSpawner.spawnInterval > 0f)
+                    successRate = _currentScore / (sessionDuration / ballSpawner.spawnInterval);
+
+                if (exporter != null)
+                {
+                    int pid = PatientManager.Instance ? PatientManager.Instance.CurrentPatientID : -1;
+                    exporter.ExportSession(pid, _currentScore, successRate, playTime,
+                                           avgReaction, rightAvg, leftAvg, ballSpeed);
+                }
+            }
         }
 
         // простые метрики
@@ -248,9 +343,9 @@ public class ScoreManager : MonoBehaviour
 
 
         Debug.Log("[ScoreManager] Session END");
-        OnSessionFinished?.Invoke(); // событие для UI и HomeButton
+        OnSessionFinished?.Invoke();
 
-        // ---- Fallback-bridge: если подавили меню, но 2-й уровень не стартовал по событию, запускаем сами ----
+        // мост между уровнями — оставляем как у вас
         if (suppress)
         {
             try
@@ -258,20 +353,14 @@ public class ScoreManager : MonoBehaviour
                 var dir = FindObjectOfType<LevelDirector>(true);
                 if (dir != null)
                 {
-                    var m = dir.GetType().GetMethod("StartRestThenLevel2External", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                    if (m != null)
-                    {
-                        Debug.Log("[ScoreManager] Bridge → StartRestThenLevel2External()");
-                        m.Invoke(dir, null);
-                    }
+                    var m = dir.GetType().GetMethod("StartRestThenLevel2External",
+                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+                    if (m != null) { Debug.Log("[ScoreManager] Bridge → StartRestThenLevel2External()"); m.Invoke(dir, null); }
                     else
                     {
-                        var m2 = dir.GetType().GetMethod("StartLevel2", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                        if (m2 != null)
-                        {
-                            Debug.LogWarning("[ScoreManager] Bridge fallback → StartLevel2() without rest");
-                            m2.Invoke(dir, null);
-                        }
+                        var m2 = dir.GetType().GetMethod("StartLevel2",
+                            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+                        if (m2 != null) { Debug.LogWarning("[ScoreManager] Bridge fallback → StartLevel2() without rest"); m2.Invoke(dir, null); }
                         else Debug.LogWarning("[ScoreManager] Bridge: LevelDirector methods not found");
                     }
                 }
@@ -280,7 +369,6 @@ public class ScoreManager : MonoBehaviour
             catch (System.Exception e) { Debug.LogWarning($"[ScoreManager] Bridge error: {e.Message}"); }
         }
     }
-
 
     // ==== Gameplay API
     public void AddScore(int points)
