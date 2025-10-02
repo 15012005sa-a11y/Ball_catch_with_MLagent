@@ -1,11 +1,13 @@
 ﻿using System;                      // Convert
 using System.Globalization;
 using System.IO;
+using System.Text;
 using System.Linq;
 using System.Reflection;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using System.ComponentModel;
 
 [DisallowMultipleComponent]
 public class PreferencesPanel : MonoBehaviour
@@ -59,7 +61,7 @@ public class PreferencesPanel : MonoBehaviour
 
     // --------- модель для spawner.json ---------
     [Serializable]
-    private class SpawnerTuning
+    public class SpawnerTuning
     {
         public float spawnInterval = 1.5f;
         public float ballSpeed = 1f;
@@ -281,8 +283,7 @@ public class PreferencesPanel : MonoBehaviour
         // сначала сохраним, потом применим
         SaveSpawnerTuning(p.id, tune);
 
-        // ВАЖНО: применяем ИМЕННО тюнинг, а не patient settings,
-        // чтобы ApplySettings взяла SpawnInterval/BallSpeed из tune
+        // применяем ИМЕННО тюнинг (а не patient settings)
         if (spawner) spawner.ApplySettings(tune);
 
         // ---- 3) сохранить на диск обе части ----
@@ -320,10 +321,11 @@ public class PreferencesPanel : MonoBehaviour
         Debug.Log($"[PreferencesPanel] Settings saved → {path}");
     }
 
+    // путь для спавнера в папке пациента (совместимость со старым форматом)
     private static string GetSpawnerPath(int patientId)
         => Path.Combine(EnsureDir(patientId), "spawner.json");
 
-    private static void SaveSpawnerTuning(int patientId, SpawnerTuning t)
+    public static void SaveSpawnerTuning(int patientId, SpawnerTuning t)
     {
         if (patientId < 0 || t == null) return;
         string path = GetSpawnerPath(patientId);
@@ -331,7 +333,7 @@ public class PreferencesPanel : MonoBehaviour
         Debug.Log($"[PreferencesPanel] Spawner saved → {path}");
     }
 
-    private static SpawnerTuning LoadSpawnerTuning(int patientId)
+    public static SpawnerTuning LoadSpawnerTuning(int patientId)
     {
         if (patientId < 0) return null;
         string path = GetSpawnerPath(patientId);
@@ -361,7 +363,7 @@ public class PreferencesPanel : MonoBehaviour
         return float.TryParse(s, NumberStyles.Float, CultureInfo.CurrentCulture, out v);
     }
 
-    private static void SetActiveSafe(Component c, bool active)
+    private static void SetActiveSafe(UnityEngine.Component c, bool active)
     {
         if (!c) return;
         var go = c.gameObject;

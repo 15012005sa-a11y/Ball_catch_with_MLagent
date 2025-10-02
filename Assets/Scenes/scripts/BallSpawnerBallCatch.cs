@@ -106,6 +106,7 @@ public class BallSpawnerBallCatch : MonoBehaviour
         float sDec = GetFloat(settings, new[] { "SpeedDecreaseFactor", "speedDecreaseFactor" }, 0.6f);
         float sRed = GetFloat(settings, new[] { "RedChance", "redChance" }, 0.35f);
 
+        // ── КОНЕЦ ApplySettings(...) ЗАМЕНИ ─────────────────────────
         spawnInterval = Mathf.Clamp(sSpawn, 0.05f, 10f);
         baseBallSpeed = Mathf.Max(0.05f, sSpeed);
         ballSpeed = baseBallSpeed; // сброс к базе при применении
@@ -113,15 +114,47 @@ public class BallSpawnerBallCatch : MonoBehaviour
         speedDecreaseFactor = Mathf.Max(0.1f, sDec);
         redChance = Mathf.Clamp01(sRed);
 
-        // если спавн уже идёт — перезапустим с новым интервалом
-        if (isSpawning)
+        // перезапускаем расписание НАДЁЖНО
+        CancelInvoke(); // снимаем любые Invoke/InvokeRepeating
+        if (gameObject.activeInHierarchy && isSpawning)
         {
-            CancelInvoke(nameof(SpawnBall));
             InvokeRepeating(nameof(SpawnBall), 0.01f, spawnInterval);
         }
 
+        // (опционально) обновим скорость уже летящих шаров
+        TryUpdateActiveBallsSpeed(baseBallSpeed);
+
         Debug.Log($"[Spawner] Settings applied: spawn={spawnInterval:F2}s, speed(base)={baseBallSpeed:F2}, " +
                   $"inc×{speedIncreaseFactor:F2}, dec×{speedDecreaseFactor:F2}, redChance={redChance:0.##}");
+    }
+
+    // Применить новую базовую скорость к уже выпущенным шарам
+    private void TryUpdateActiveBallsSpeed(float newBaseSpeed)
+    {
+        var rbs = FindObjectsOfType<Rigidbody>(false);
+        for (int i = 0; i < rbs.Length; i++)
+        {
+            var rb = rbs[i];
+            if (!rb || !rb.gameObject.activeInHierarchy) continue;
+            if (!rb.gameObject.name.ToLower().Contains("ball") && !rb.gameObject.CompareTag("Ball"))
+                continue;
+
+            // если у шара есть свой setter скорости — используем
+            var mb = rb.GetComponent<MonoBehaviour>();
+            if (mb)
+            {
+                var t = mb.GetType();
+                var m = t.GetMethod("SetBaseSpeed", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                     ?? t.GetMethod("SetSpeed", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (m != null && m.GetParameters().Length == 1 && m.GetParameters()[0].ParameterType == typeof(float))
+                {
+                    try { m.Invoke(mb, new object[] { newBaseSpeed }); continue; } catch { }
+                }
+            }
+            // фоллбэк: поправим скорость через Rigidbody
+            if (rb.velocity.sqrMagnitude > 0.0001f)
+                rb.velocity = rb.velocity.normalized * newBaseSpeed;
+        }
     }
 
     // ---------- Публичный API ----------
@@ -132,7 +165,13 @@ public class BallSpawnerBallCatch : MonoBehaviour
         spawnCount = 0;
         catchCount = 0;
 
+        // ❶ применяем пациентские настройки (длительности и т.п.)
         ApplySettingsFromCurrentPatient();
+
+        // ❷ затем — персональный тюнинг спавнера для текущего пациента
+        var pid = PatientManager.Instance?.Current?.id ?? -1;
+        var tune = PreferencesPanel.LoadSpawnerTuning(pid);   // сделай метод public static
+        if (tune != null) ApplySettings(tune);
 
         isSpawning = true;
         InvokeRepeating(nameof(SpawnBall), 1f, spawnInterval);
