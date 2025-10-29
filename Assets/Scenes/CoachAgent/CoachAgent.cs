@@ -107,9 +107,11 @@ public class CoachAgent : Agent
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {
-        // Для ручной отладки — по умолчанию нули (без изменений)
         var ca = actionsOut.ContinuousActions;
-        ca[0] = 0; ca[1] = 0; ca[2] = 0; ca[3] = 0;
+        ca[0] = 0f;   // dSpawnInterval
+        ca[1] = +0.7f; // dBallSpeed (для проверки: растёт скорость)
+        ca[2] = 0f;   // dTargetRadius
+        ca[3] = 0f;   // dSpawnRadius
     }
 
     // === Reward/Decision cadence ===

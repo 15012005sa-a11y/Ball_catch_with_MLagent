@@ -947,7 +947,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &196848749
 Transform:
   m_ObjectHideFlags: 0
@@ -7572,7 +7572,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &742710222
 Transform:
   m_ObjectHideFlags: 0
@@ -7895,7 +7895,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28721a2d7e1e9074481e3cd3051e78a2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  perf: {fileID: 0}
+  perf: {fileID: 1910140007}
   score: {fileID: 1598290630}
 --- !u!4 &746548045
 Transform:
@@ -11418,37 +11418,6 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_IsOn: 1
---- !u!1 &1162054272
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1162054273}
-  m_Layer: 0
-  m_Name: RightHandTarget
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1162054273
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1162054272}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1932.3383, y: 1135.3665, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_RootOrder: 24
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1165828017
 GameObject:
   m_ObjectHideFlags: 0
@@ -12691,8 +12660,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ca4d0ebcc47ab4b4ca8d0df244c5b17f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  windowsPerEpisode: 30
-  coach: {fileID: 0}
+  windowsPerEpisode: 20
+  coach: {fileID: 1910140004}
   twoLevels: 1
   spawner: {fileID: 500489876}
   score: {fileID: 1598290630}
@@ -14780,37 +14749,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1536411446}
   m_CullTransparentMesh: 1
---- !u!1 &1541606885
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1541606886}
-  m_Layer: 0
-  m_Name: LeftHandTarget
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1541606886
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1541606885}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1932.3383, y: 1135.3665, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_RootOrder: 23
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1545024099
 GameObject:
   m_ObjectHideFlags: 0
@@ -19479,7 +19417,7 @@ MonoBehaviour:
     hasUpgradedBrainParametersWithActionSpec: 1
   m_Model: {fileID: 0}
   m_InferenceDevice: 0
-  m_BehaviorType: 0
+  m_BehaviorType: 1
   m_BehaviorName: CoachAgent
   TeamId: 0
   m_UseChildSensors: 1
@@ -19528,7 +19466,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   spawner: {fileID: 500489876}
   spawnIntervalSecRange: {x: 0.5, y: 3}
-  ballSpeedRange: {x: 0.5, y: 4}
+  ballSpeedRange: {x: 0.2, y: 5}
   targetRadiusRange: {x: 0.05, y: 0.2}
   spawnRadiusRange: {x: 0.2, y: 1.5}
   lerpRate: 0.3
