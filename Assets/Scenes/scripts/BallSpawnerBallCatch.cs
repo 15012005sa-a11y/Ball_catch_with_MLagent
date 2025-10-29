@@ -14,11 +14,18 @@ public class BallSpawnerBallCatch : MonoBehaviour
     public float spawnInterval = 1.5f;
 
     [Tooltip("Текущая скорость шара (может адаптивно меняться)")]
-    public float ballSpeed = 1f;
+    public float ballSpeed = 2f;
 
     [Header("Факторы изменения скорости")]
     [Tooltip("Умножается на текущую скорость, если поймано ≥80%")]
     public float speedIncreaseFactor = 1.1f;
+
+    // ВКЛ/ВЫКЛ локальной адаптации скорости (для ML — выключено)
+    [Header("Self-adaptation (disable for ML training)")]
+    public bool selfAdaptive = false;
+
+    // Клампы скорости (защита от нуля и слишком больших значений)
+    public Vector2 ballSpeedClamp = new Vector2(0.20f, 5.00f);
 
     [Tooltip("Умножается на текущую скорость, если поймано ≤50%")]
     public float speedDecreaseFactor = 0.6f;
@@ -38,11 +45,14 @@ public class BallSpawnerBallCatch : MonoBehaviour
     [Tooltip("Материал (или цвет) для КРАСНЫХ шаров")]
     public Material redMaterial;
     // --------------------------------------------
+    public event Action<GameObject> OnBallSpawned;
 
     private int spawnCount = 0;
     private int catchCount = 0;
     private bool isSpawning = false;
     private int nextBallId = 0;
+
+    private void OnValidate() { ballSpeed = Mathf.Max(0.05f, ballSpeed); }
 
     private float baseBallSpeed = 1f;
 
@@ -51,6 +61,7 @@ public class BallSpawnerBallCatch : MonoBehaviour
     {
         var pm = PatientManager.Instance;
         if (pm != null) pm.OnSelectedPatientChanged += OnSelectedPatientChanged;
+        ClampRuntime();
     }
 
     private void Start()
@@ -193,6 +204,7 @@ public class BallSpawnerBallCatch : MonoBehaviour
 
         var spawnPoint = spawnPoints[UnityEngine.Random.Range(0, spawnPoints.Length)];
         GameObject ball = Instantiate(ballPrefab, spawnPoint.position, Quaternion.identity);
+        ball.tag = "Ball"; // гарантируем наличие тега
 
         int ballId = nextBallId++;
         var collision = ball.GetComponent<BallCollision>();
@@ -227,21 +239,25 @@ public class BallSpawnerBallCatch : MonoBehaviour
             rb.velocity = (target - spawnPoint.position).normalized * ballSpeed;
         }
 
-        if (spawnCount % 10 == 0)
+        // стало — адаптация только если разрешена, плюс клампы
+        if (selfAdaptive && spawnCount % 10 == 0)
         {
             float ratio = catchCount / 10f;
             if (ratio >= 0.8f)
-            {
-                ballSpeed *= speedIncreaseFactor;
-                Debug.Log($"[Adaptive] {catchCount}/10 → speed ↑ to {ballSpeed:F2}");
-            }
+                ballSpeed = Mathf.Clamp(ballSpeed * speedIncreaseFactor, ballSpeedClamp.x, ballSpeedClamp.y);
             else if (ratio <= 0.5f)
-            {
-                ballSpeed *= speedDecreaseFactor;
-                Debug.Log($"[Adaptive] {catchCount}/10 → speed ↓ to {ballSpeed:F2}");
-            }
+                ballSpeed = Mathf.Clamp(ballSpeed * speedDecreaseFactor, ballSpeedClamp.x, ballSpeedClamp.y);
             catchCount = 0;
         }
+
+        OnBallSpawned?.Invoke(ball);
+
+    }
+
+    private void ClampRuntime()
+    {
+        ballSpeed = Mathf.Clamp(ballSpeed, ballSpeedClamp.x, ballSpeedClamp.y);
+        spawnInterval = Mathf.Max(0.05f, spawnInterval);
     }
 
     private void HandleBallCaught() => catchCount++;

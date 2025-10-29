@@ -1,12 +1,4 @@
-﻿// ===============================================
-// ScoreManager (final)
-// - Появится HomeButton только после финального финиша (после 2-го уровня)
-// - Добавлен флаг LastSessionWasBetweenLevels, чтобы различать конец 1-го уровня
-// - Сохранён мост на LevelDirector, чтобы гарантировать переход Rest → Level 2
-// - Совместим с существующими скриптами (SetShowStartButton, StartSessionInternal(resetScore), RegisterMiss и т.д.)
-// ===============================================
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -14,6 +6,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using CoachEnv;
 
 [RequireComponent(typeof(AudioSource))]
 public class ScoreManager : MonoBehaviour
@@ -26,6 +19,48 @@ public class ScoreManager : MonoBehaviour
     public event Action OnGoodCatch;     // «правильный» мяч
     public event Action OnRedTouched;    // красный задет
     public event Action OnMissed;        // промах
+
+    public event Action EpisodeFinished;
+
+    [SerializeField] private bool lockDurationsFromPatient = true;
+
+    public event Action<bool, float, float> OnBallResult;
+    // success, reactionSec, rom01
+
+    void EmitResult(bool success, float reactionSec, float rom01)
+    {
+        OnBallResult?.Invoke(success, reactionSec, rom01); // ← ; обязателен
+    }
+    // там, где у вас завершается попытка:
+    void OnAttemptFinished(bool success)
+    {
+        // последнее измеренное время реакции (если ничего нет — 0)
+        float reactionSec = (_reactionTimes != null && _reactionTimes.Count > 0)
+            ? _reactionTimes[_reactionTimes.Count - 1]
+            : 0f;
+
+        // прокси-ROM: берём последнюю «точность/дотягивание» (0..1), которую ты пишешь в RecordAccuracy()
+        float rom01 = (_accuracy != null && _accuracy.Count > 0)
+            ? Mathf.Clamp01(_accuracy[_accuracy.Count - 1])
+            : 0f;
+
+        EmitResult(success, reactionSec, rom01);
+    }
+
+    // ScoreManager.cs (в инспекторе появится галочка)
+    [Header("Training/Debug")]
+    public bool endlessSession = false;
+
+    // Каноничное событие окна (10 мячей) с агрегированными метриками
+    public event System.Action<WindowMetrics> OnWindowFinished;
+
+    // Алиас для обратной совместимости: score.WindowFinished += ...
+    // Внешние подписки на WindowFinished будут перенаправлены на OnWindowFinished
+    public event System.Action<WindowMetrics> WindowFinished
+    {
+        add { OnWindowFinished += value; }
+        remove { OnWindowFinished -= value; }
+    }
 
     // ==== Inspector
     [Header("Exporter")] public ExcelExporter exporter;
@@ -86,12 +121,27 @@ public class ScoreManager : MonoBehaviour
     // чтобы понимать, сбрасывался ли счёт между уровнями
     int _aggFirstStageEndScore = 0;   // счёт на конце L1
 
+    // ---- ОКНО ИЗ 10 МЯЧЕЙ (НОВОЕ) ----
+    const int WINDOW_SIZE = 10;
+    int _winAttempts, _winHits;
+    readonly List<float> _winReacts = new();
+    float _winStartTime;
+
     // ==== Unity lifecycle
     private void Awake()
     {
         Instance = this;                     // новый менеджер в каждой сцене
         _audio = GetComponent<AudioSource>();
         if (!motionLogger) motionLogger = FindObjectOfType<MotionLogger>(true);
+
+        if (uiPanel == null)
+            uiPanel = FindObjectOfType<Canvas>(true)?.gameObject;  // разово ищем Canvas
+
+        if (uiPanel != null)
+            uiPanel.SetActive(true);
+
+        if (uiPanel == null) uiPanel = FindObjectOfType<Canvas>(true)?.gameObject;
+
     }
 
     private void Start()
@@ -107,10 +157,14 @@ public class ScoreManager : MonoBehaviour
     private void Update()
     {
         if (!_sessionRunning) return;
-        _timer -= Time.deltaTime;
-        if (_timer <= 0f) { _timer = 0f; EndSession(); }
+        if (!endlessSession)
+        {
+            _timer -= Time.deltaTime;
+            if (_timer <= 0f) { _timer = 0f; EndSession(); }
+        }
         UpdateUI();
     }
+
 
     // ==== Public helpers (API, которые используются другими скриптами)
     public void SetShowStartButton(bool value)
@@ -127,7 +181,12 @@ public class ScoreManager : MonoBehaviour
 
     public void SetLevel(int level) => currentLevel = Mathf.Clamp(level, 1, 2);
 
-    public void RegisterMiss() => OnMissed?.Invoke();
+    public void RegisterMiss()  // уже есть у тебя
+    {
+        OnMissed?.Invoke();
+        OnAttemptFinished(false);                 // ← промах
+    }
+
 
     // ==== Session control
     public void StartSession()
@@ -153,9 +212,20 @@ public class ScoreManager : MonoBehaviour
 
         _timer = (currentLevel == 1) ? level1Duration : level2Duration;
         sessionDuration = _timer;
+
+        // если бесконечный режим – таймер не используем
+        if (endlessSession)
+        {
+            _timer = float.PositiveInfinity;
+            sessionDuration = _timer;
+        }
+
         _sessionRunning = true;
 
         _accuracy.Clear(); _reactionTimes.Clear(); spawnTimes.Clear(); nextBallId = 0;
+
+        // Сброс окна (НОВОЕ)
+        _winAttempts = 0; _winHits = 0; _winReacts.Clear(); _winStartTime = Time.time;
 
         if (!ballSpawner) ballSpawner = FindObjectOfType<BallSpawnerBallCatch>(true);
         if (ballSpawner) ballSpawner.StartSpawning(); else Debug.LogWarning("[ScoreManager] ballSpawner == null");
@@ -332,6 +402,8 @@ public class ScoreManager : MonoBehaviour
                                            stageAvgReaction, stageRightAvg, stageLeftAvg, stageBallSpeed);
                 }
             }
+
+            EpisodeFinished?.Invoke();
         }
 
         Debug.Log("[ScoreManager] Session END");
@@ -366,13 +438,17 @@ public class ScoreManager : MonoBehaviour
     public void AddScore(int points)
     {
         if (!_sessionRunning) return;
+        if (points > 0) _winHits++;
         _currentScore += points;
         if (clampScoreToZero && _currentScore < 0) _currentScore = 0;
         UpdateUI();
         OnBallCaught?.Invoke();
         OnGoodCatch?.Invoke();
         if (popSound && _audio) _audio.PlayOneShot(popSound);
+
+        if (points > 0) OnAttemptFinished(true);   // ← успех
     }
+
 
     public void RedBallTouched()
     {
@@ -384,15 +460,30 @@ public class ScoreManager : MonoBehaviour
         if (popSound && _audio) _audio.PlayOneShot(popSound);
     }
 
-    public void RecordSpawn(int ballId) => spawnTimes[ballId] = Time.time;
+    // Новое: фиксируем спавн как «попытку» окна
+    public void RecordSpawn(int ballId)
+    {
+        spawnTimes[ballId] = Time.time;
+        if (_sessionRunning)
+        {
+            _winAttempts++;
+            TryFinishWindow();
+        }
+    }
+
     public void RegisterSpawn(int ballId) => RecordSpawn(ballId);
+
     public void RecordAccuracy(float distance)
     {
         float acc = 1f - Mathf.Clamp01(distance / maxCatchDistance);
         _accuracy.Add(acc);
     }
 
-    public void RecordReactionTime(float reaction) => _reactionTimes.Add(reaction);
+    public void RecordReactionTime(float reaction)
+    {
+        _reactionTimes.Add(reaction);
+        if (_sessionRunning) _winReacts.Add(reaction); // Новое: копим в окне
+    }
 
     // ==== UI wiring
     private void WireStartButton()
@@ -406,9 +497,11 @@ public class ScoreManager : MonoBehaviour
 
     private void UpdateUI()
     {
-        if (currentScoreText) currentScoreText.text = $"My Score: {_currentScore}";
-        if (bestScoreText) bestScoreText.text = $"Best Score: {PlayerPrefs.GetInt("BestScore", 0)}";
-        if (timerText) timerText.text = $"Time: {Mathf.Ceil(_timer)}s";
+        if (timerText)
+        {
+            timerText.text = endlessSession ? "Time: ∞" : $"Time: {Mathf.Ceil(_timer)}s";
+        }
+
     }
 
     private void AutoReconnectRefs()
@@ -424,6 +517,12 @@ public class ScoreManager : MonoBehaviour
     private static readonly BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
     public void ApplySettingsFromPatient(object settings)
     {
+        if (lockDurationsFromPatient)
+        {
+            Debug.Log("[ScoreManager] Durations locked – PatientSettings ignored.");
+            return;
+        }
+
         level1Duration = Mathf.Clamp(GetInt(settings, new[] { "Level1Duration", "level1DurationSec" }, level1Duration), 5, 3600);
         level2Duration = Mathf.Clamp(GetInt(settings, new[] { "Level2Duration", "level2DurationSec" }, level2Duration), 5, 3600);
         restSeconds = Mathf.Clamp(GetInt(settings, new[] { "RestSeconds", "restTimeSec" }, restSeconds), 0, 600);
@@ -441,5 +540,37 @@ public class ScoreManager : MonoBehaviour
             if (p != null && p.CanRead) { try { return Convert.ToInt32(p.GetValue(obj, null)); } catch { } }
         }
         return defVal;
+    }
+
+    // =============================
+    // ОКНО: подсчёт и событие (НОВОЕ)
+    // =============================
+    void TryFinishWindow()
+    {
+        if (_winAttempts < WINDOW_SIZE) return;
+
+        float elapsed = Mathf.Max(Time.time - _winStartTime, 0.0001f);
+        float hitRate = (_winAttempts > 0) ? (float)_winHits / _winAttempts : 0f;
+
+        float avgReaction = 0f;
+        if (_winReacts.Count > 0)
+        {
+            float s = 0f; for (int i = 0; i < _winReacts.Count; i++) s += _winReacts[i];
+            avgReaction = s / _winReacts.Count;
+        }
+
+        var metrics = new WindowMetrics
+        {
+            hitRate = hitRate,
+            avgReactionMs = avgReaction * 1000f,        // если реакция уже в мс — уберите *1000
+            trunkCompFrac = 0f,                          // заполните, когда появится метрика
+            throughputPerMin = (_winAttempts / elapsed) * 60f
+        };
+
+        // ВЫЗОВ СОБЫТИЯ ДЛЯ ML-AGENTS / ДРУГИХ ПОДПИСЧИКОВ
+        OnWindowFinished?.Invoke(metrics); // ✅ вызываем каноничное событие (а алиас подписан на него)
+
+        // сброс окна
+        _winAttempts = 0; _winHits = 0; _winReacts.Clear(); _winStartTime = Time.time;
     }
 }

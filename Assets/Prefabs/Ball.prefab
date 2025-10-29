@@ -17,7 +17,7 @@ GameObject:
   - component: {fileID: -6536245092722810032}
   m_Layer: 0
   m_Name: Ball
-  m_TagString: Untagged
+  m_TagString: Ball
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -95,7 +95,7 @@ SphereCollider:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7107989153420749410}
   m_Material: {fileID: 0}
-  m_IsTrigger: 1
+  m_IsTrigger: 0
   m_Enabled: 1
   serializedVersion: 2
   m_Radius: 0.5
@@ -128,7 +128,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d0e4333c93864624091b2eea6a5b381c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  BallId: -1
+  isRed: 0
+  destroyOnCatch: 1
+  destroyDelay: 0.02
   popEffectPrefab: {fileID: 1958028103900178588, guid: b93864281dde59943a8e0207fc2bfc0d, type: 3}
+  popEffectLifetime: 1.2
+  handLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  missZoneTag: MissZone
 --- !u!114 &-6536245092722810032
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -7,6 +7,7 @@ TagManager:
   - PlayerHand
   - PlayerFoot
   - MissZone
+  - Ball
   layers:
   - Default
   - TransparentFX

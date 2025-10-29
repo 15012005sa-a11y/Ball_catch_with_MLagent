@@ -27,7 +27,7 @@ public class BallSpawner : MonoBehaviour
             SpawnBalls();
             nextSpawnTime = Time.time + spawnRate;
 
-			spawnRate = Random.Range(0f, 1f);
+			//spawnRate = Random.Range(0f, 1f);
 			//numberOfBalls = Mathf.RoundToInt(Random.Range(1f, 10f));
         }
 	}
