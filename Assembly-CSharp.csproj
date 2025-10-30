@@ -304,6 +304,7 @@
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexZoom.cs" />
     <Compile Include="Assets\Scenes\1.2 UI scripts\SelectedLabel.cs" />
     <Compile Include="Assets\Scenes\1.2 UI scripts\AppShellNav.cs" />
+    <Compile Include="Assets\Scenes\CoachAgent\TrainingAutoStart.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\ProjectorDemo\Scripts\RoomAliveToolkit\ProjectorCameraEnsemble.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\AvatarsDemo\Scripts\CameraPitchCorrector.cs" />
     <Compile Include="Assets\K2Examples\KinectScripts\ForegroundBlender.cs" />

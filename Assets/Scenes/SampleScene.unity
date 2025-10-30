@@ -947,7 +947,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &196848749
 Transform:
   m_ObjectHideFlags: 0
@@ -980,7 +980,7 @@ MonoBehaviour:
   spawner: {fileID: 500489876}
   moveSpeed: 5
   followHeight: 1.2
-  catchOffsetZ: 0.1
+  catchOffsetZ: 1
   lateralOffset: 0.25
   reacDelay: 0.15
   ballTag: Ball
@@ -1435,11 +1435,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: -20, y: -20}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!4 &225483890 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 8013592909085664294, guid: 37495b644a8842442a686e6bb70e8ad6, type: 3}
-  m_PrefabInstance: {fileID: 835667447}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &240547823 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 8013592909085702224, guid: 37495b644a8842442a686e6bb70e8ad6, type: 3}
@@ -1458,6 +1453,11 @@ SphereCollider:
   serializedVersion: 2
   m_Radius: 0.1
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!4 &240547826 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8013592909085664304, guid: 37495b644a8842442a686e6bb70e8ad6, type: 3}
+  m_PrefabInstance: {fileID: 835667447}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &246259828
 GameObject:
   m_ObjectHideFlags: 0
@@ -3807,7 +3807,7 @@ MonoBehaviour:
   m_Data:
     m_Root: {fileID: 835667451}
     m_Mid: {fileID: 835667450}
-    m_Tip: {fileID: 225483890}
+    m_Tip: {fileID: 240547826}
     m_Target: {fileID: 2132344154}
     m_Hint: {fileID: 1609345982}
     m_TargetPositionWeight: 1
@@ -4948,7 +4948,7 @@ MonoBehaviour:
   - {fileID: 1574854997}
   playerTransform: {fileID: 187372543281618720, guid: d8a19141f7d4ab148bb3b1899111e37b, type: 3}
   spawnInterval: 0.5
-  ballSpeed: 0.5
+  ballSpeed: 0.2
   speedIncreaseFactor: 1.1
   selfAdaptive: 0
   ballSpeedClamp: {x: 0.2, y: 5}
@@ -5602,6 +5602,11 @@ SphereCollider:
   serializedVersion: 2
   m_Radius: 0.1
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!4 &569387650 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8013592909085664310, guid: 37495b644a8842442a686e6bb70e8ad6, type: 3}
+  m_PrefabInstance: {fileID: 835667447}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &575517287
 GameObject:
   m_ObjectHideFlags: 0
@@ -7572,7 +7577,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &742710222
 Transform:
   m_ObjectHideFlags: 0
@@ -19360,6 +19365,7 @@ GameObject:
   - component: {fileID: 1910140008}
   - component: {fileID: 1910140007}
   - component: {fileID: 1910140009}
+  - component: {fileID: 1910140010}
   m_Layer: 0
   m_Name: AI
   m_TagString: Untagged
@@ -19415,9 +19421,9 @@ MonoBehaviour:
     VectorActionDescriptions: []
     VectorActionSpaceType: 0
     hasUpgradedBrainParametersWithActionSpec: 1
-  m_Model: {fileID: 0}
+  m_Model: {fileID: 5022602860645237092, guid: 600ad25ab46399742b8de5a5c302a741, type: 3}
   m_InferenceDevice: 0
-  m_BehaviorType: 1
+  m_BehaviorType: 2
   m_BehaviorName: CoachAgent
   TeamId: 0
   m_UseChildSensors: 1
@@ -19484,6 +19490,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   DecisionPeriod: 5
   TakeActionsBetweenDecisions: 1
+--- !u!114 &1910140010
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1910140003}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d0006de8e2a39e5459e5f519ed60991a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  score: {fileID: 1598290630}
 --- !u!1 &1911621281
 GameObject:
   m_ObjectHideFlags: 0
@@ -20065,7 +20084,7 @@ MonoBehaviour:
   m_Data:
     m_Root: {fileID: 835667452}
     m_Mid: {fileID: 835667453}
-    m_Tip: {fileID: 225483890}
+    m_Tip: {fileID: 569387650}
     m_Target: {fileID: 481408891}
     m_Hint: {fileID: 1974780733}
     m_TargetPositionWeight: 1
