@@ -4948,7 +4948,7 @@ MonoBehaviour:
   - {fileID: 1574854997}
   playerTransform: {fileID: 187372543281618720, guid: d8a19141f7d4ab148bb3b1899111e37b, type: 3}
   spawnInterval: 0.5
-  ballSpeed: 0.5
+  ballSpeed: 0.2
   speedIncreaseFactor: 1.1
   selfAdaptive: 0
   ballSpeedClamp: {x: 0.2, y: 5}
@@ -19417,7 +19417,7 @@ MonoBehaviour:
     hasUpgradedBrainParametersWithActionSpec: 1
   m_Model: {fileID: 0}
   m_InferenceDevice: 0
-  m_BehaviorType: 1
+  m_BehaviorType: 0
   m_BehaviorName: CoachAgent
   TeamId: 0
   m_UseChildSensors: 1

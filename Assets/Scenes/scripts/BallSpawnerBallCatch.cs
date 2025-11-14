@@ -9,6 +9,11 @@ public class BallSpawnerBallCatch : MonoBehaviour
     public Transform[] spawnPoints;
     public Transform playerTransform;
 
+    public void SetBallSpeed(float v) { ballSpeed = v; }          // где ballSpeed реально используется при ускорении мяча
+    public void SetSpawnInterval(float v) { spawnIntervalSec = v; }   // влияет на таймер спавна
+    public void SetSpawnRadius(float v) { spawnRadius = v; }        // если используешь радиус
+    public void SetTargetRadius(float v) { targetRadius = v; }       // если используешь доп. логику попадания
+
     [Header("Параметры движения (текущие)")]
     [Tooltip("Интервал между появлениями шаров, сек")]
     public float spawnInterval = 1.5f;
