@@ -976,13 +976,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   leftTarget: {fileID: 481408891}
+  leftHint: {fileID: 0}
   rightTarget: {fileID: 2132344154}
+  rightHint: {fileID: 0}
+  torso: {fileID: 2099404004}
   spawner: {fileID: 500489876}
-  moveSpeed: 5
+  moveSpeed: 13
   followHeight: 1.2
-  catchOffsetZ: 1
+  catchOffsetZ: 0.5
   lateralOffset: 0.25
-  reacDelay: 0.15
+  reacDelay: 0.08
+  minForward: 0.15
+  chestOffset: 0.1
+  headOffset: 0.15
+  maxReach: 0.9
   ballTag: Ball
 --- !u!1 &200504516
 GameObject:
@@ -4948,6 +4955,7 @@ MonoBehaviour:
   - {fileID: 1574854997}
   playerTransform: {fileID: 187372543281618720, guid: d8a19141f7d4ab148bb3b1899111e37b, type: 3}
   spawnInterval: 0.5
+  aiSpawnBias: 0
   ballSpeed: 0.2
   speedIncreaseFactor: 1.1
   selfAdaptive: 0
@@ -12666,7 +12674,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   windowsPerEpisode: 20
-  coach: {fileID: 1910140004}
+  coach: {fileID: 0}
   twoLevels: 1
   spawner: {fileID: 500489876}
   score: {fileID: 1598290630}
@@ -15113,13 +15121,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   leftTarget: {fileID: 0}
+  leftHint: {fileID: 0}
   rightTarget: {fileID: 0}
+  rightHint: {fileID: 0}
+  torso: {fileID: 0}
   spawner: {fileID: 500489876}
   moveSpeed: 5
   followHeight: 1.2
   catchOffsetZ: 0.1
   lateralOffset: 0.25
   reacDelay: 0.15
+  minForward: 0.15
+  chestOffset: 0.1
+  headOffset: 0.55
+  maxReach: 0.75
   ballTag: Ball
 --- !u!1 &1558489008
 GameObject:
@@ -19391,12 +19406,14 @@ MonoBehaviour:
   MaxStep: 480
   difficulty: {fileID: 1910140008}
   perf: {fileID: 1910140007}
+  spawner: {fileID: 500489876}
   targetSR: 0.7
   maxReactionSec: 2
   dSpawnIntervalMax: 0.15
   dBallSpeedMax: 0.5
   dTargetRadiusMax: 0.03
   dSpawnRadiusMax: 0.1
+  dSpawnBiasMax: 0.3
   decisionsEveryNResults: 2
   windowsPerEpisode: 30
 --- !u!114 &1910140005
@@ -19415,15 +19432,15 @@ MonoBehaviour:
     VectorObservationSize: 8
     NumStackedVectorObservations: 1
     m_ActionSpec:
-      m_NumContinuousActions: 4
+      m_NumContinuousActions: 5
       BranchSizes: 01000000
     VectorActionSize: 
     VectorActionDescriptions: []
     VectorActionSpaceType: 0
     hasUpgradedBrainParametersWithActionSpec: 1
-  m_Model: {fileID: 5022602860645237092, guid: 600ad25ab46399742b8de5a5c302a741, type: 3}
+  m_Model: {fileID: 0}
   m_InferenceDevice: 0
-  m_BehaviorType: 2
+  m_BehaviorType: 0
   m_BehaviorName: CoachAgent
   TeamId: 0
   m_UseChildSensors: 1

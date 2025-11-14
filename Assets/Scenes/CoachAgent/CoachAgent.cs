@@ -13,6 +13,7 @@ public class CoachAgent : Agent
     [Header("Links")]
     public DifficultyController difficulty;   // Обёртка над LevelDirector/BallSpawner
     public PerformanceWindow perf;          // Окно метрик (SR, RT, ROM)
+    public BallSpawnerBallCatch spawner;   // <- НОВОЕ ПОЛЕ
 
     [Header("Targets")]
     [Range(0.5f, 0.9f)] public float targetSR = 0.7f; // целевая успешность
@@ -30,6 +31,8 @@ public class CoachAgent : Agent
     public float dTargetRadiusMax = 0.03f;
     [Tooltip("Изменение радиуса области спавна за мини-раунд (м)")]
     public float dSpawnRadiusMax = 0.10f;
+    [Tooltip("Изменение смещения точки спавна за мини-раунд (в долях диапазона -1..1)")]
+    public float dSpawnBiasMax = 0.30f;
 
     [Header("Decision cadence")]
     [Tooltip("Сколько попыток в мини-раунде до следующего решения")]
@@ -89,29 +92,39 @@ public class CoachAgent : Agent
         float a1 = Mathf.Clamp(a[1], -1f, 1f); // dSpeed
         float a2 = Mathf.Clamp(a[2], -1f, 1f); // dTargetR
         float a3 = Mathf.Clamp(a[3], -1f, 1f); // dSpawnR
+        float a4 = Mathf.Clamp(a[4], -1f, 1f); // dSpawnBias (точка появления)
 
-        // <<— ВОТ ЗДЕСЬ ЛОГ
 #if UNITY_EDITOR
-        if ((Time.frameCount & 31) == 0) // чтобы не спамить каждый кадр
-            Debug.Log($"[AI] act: dSpawn={a0:F3}, dSpeed={a1:F3}, dTargetR={a2:F3}, dSpawnR={a3:F3}");
+    if ((Time.frameCount & 31) == 0)
+        Debug.Log($"[AI] act: dSpawn={a0:F3}, dSpeed={a1:F3}, dTargetR={a2:F3}, dSpawnR={a3:F3}, bias={a4:F3}");
 #endif
 
-        // Применяем к контроллеру сложности (масштабируй, если нужно)
-        difficulty.ApplyDeltas(
-            a0 * dSpawnIntervalMax,
-            a1 * dBallSpeedMax,
-            a2 * dTargetRadiusMax,
-            a3 * dSpawnRadiusMax
-        );
+        // сложность (как было)
+        if (difficulty != null)
+        {
+            difficulty.ApplyDeltas(
+                a0 * dSpawnIntervalMax,
+                a1 * dBallSpeedMax,
+                a2 * dTargetRadiusMax,
+                a3 * dSpawnRadiusMax
+            );
+        }
+
+        // НОВОЕ: смещение точки спавна
+        if (spawner != null)
+        {
+            // аккуратно двигаем bias в -1..1
+            spawner.aiSpawnBias = Mathf.Clamp(
+                spawner.aiSpawnBias + a4 * dSpawnBiasMax,
+                -1f, 1f
+            );
+        }
     }
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {
         var ca = actionsOut.ContinuousActions;
-        ca[0] = 0f;   // dSpawnInterval
-        ca[1] = +0.7f; // dBallSpeed (для проверки: растёт скорость)
-        ca[2] = 0f;   // dTargetRadius
-        ca[3] = 0f;   // dSpawnRadius
+        ca[0] = ca[1] = ca[2] = ca[3] = ca[4] = 0;
     }
 
     // === Reward/Decision cadence ===

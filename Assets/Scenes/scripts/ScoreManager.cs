@@ -449,6 +449,20 @@ public class ScoreManager : MonoBehaviour
         if (points > 0) OnAttemptFinished(true);   // ← успех
     }
 
+    // ==== Gameplay API
+    public void ReportCatch(bool success = true, int points = 1)
+    {
+        if (success)
+            AddScore(points);    // тут уже вызываются события и звук
+        else
+            RegisterMiss();      // тут уже вызывается OnMissed и фиксация попытки
+    }
+
+    public void ReportMiss()
+    {
+        OnMissed?.Invoke();
+    }
+
 
     public void RedBallTouched()
     {

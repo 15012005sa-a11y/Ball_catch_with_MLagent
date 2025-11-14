@@ -13,6 +13,12 @@ public class BallSpawnerBallCatch : MonoBehaviour
     [Tooltip("Интервал между появлениями шаров, сек")]
     public float spawnInterval = 1.5f;
 
+    [Header("AI-управление спавном")]
+    [Range(-1f, 1f)]
+    public float aiSpawnBias = 0f;
+    // -1 = максимально левый/нижний спавнпоинт
+    // +1 = максимально правый/верхний
+
     [Tooltip("Текущая скорость шара (может адаптивно меняться)")]
     public float ballSpeed = 2f;
 
@@ -202,7 +208,9 @@ public class BallSpawnerBallCatch : MonoBehaviour
 
         spawnCount++;
 
-        var spawnPoint = spawnPoints[UnityEngine.Random.Range(0, spawnPoints.Length)];
+        var spawnPoint = GetBiasedSpawnPoint();
+        if (spawnPoint == null) return;
+
         GameObject ball = Instantiate(ballPrefab, spawnPoint.position, Quaternion.identity);
         ball.tag = "Ball"; // гарантируем наличие тега
 
@@ -258,6 +266,26 @@ public class BallSpawnerBallCatch : MonoBehaviour
     {
         ballSpeed = Mathf.Clamp(ballSpeed, ballSpeedClamp.x, ballSpeedClamp.y);
         spawnInterval = Mathf.Max(0.05f, spawnInterval);
+    }
+
+    private Transform GetBiasedSpawnPoint()
+    {
+        if (spawnPoints == null || spawnPoints.Length == 0)
+            return null;
+
+        int n = spawnPoints.Length;
+
+        // aiSpawnBias (-1..1) -> t (0..1)
+        float t = Mathf.InverseLerp(-1f, 1f, aiSpawnBias);
+        int centerIndex = Mathf.Clamp(Mathf.RoundToInt(t * (n - 1)), 0, n - 1);
+
+        // Небольшое «окно» вокруг центра, чтобы было чуть случайности
+        int window = Mathf.Max(1, n / 3);              // ~треть всех точек
+        int min = Mathf.Clamp(centerIndex - window / 2, 0, n - 1);
+        int max = Mathf.Clamp(min + window, min + 1, n);
+
+        int idx = UnityEngine.Random.Range(min, max);
+        return spawnPoints[idx];
     }
 
     private void HandleBallCaught() => catchCount++;
