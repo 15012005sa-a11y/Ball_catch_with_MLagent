@@ -114,7 +114,8 @@ public class PlayerSimulatorLite : MonoBehaviour
 
         // Высота в локальной оси up торса
         float upDist = Vector3.Dot(targetPos - anchor, up);
-        upDist = Mathf.Clamp(upDist, chestOffset, headOffset);
+        // даём рукам подниматься выше головы (1.8 × headOffset)
+        upDist = Mathf.Clamp(upDist, chestOffset, headOffset * 1.8f);
         // Пересобираем точку: якорь + проекция по up + поперечная часть (орт-база устойчивая)
         Vector3 lateral = targetPos - anchor - up * Vector3.Dot(targetPos - anchor, up);
         targetPos = anchor + lateral + up * upDist;
@@ -211,9 +212,27 @@ public class PlayerSimulatorLite : MonoBehaviour
 
     private (Vector3 fwd, Vector3 up, Vector3 right) GetBasis()
     {
-        if (torso)
-            return (torso.forward, torso.up, torso.right);
-        return (Vector3.forward, Vector3.up, Vector3.right);
+        // Всегда используем мировой up = ось Y
+        Vector3 up = Vector3.up;
+
+        // Берём forward в плоскости XZ, чтобы он был по дорожке
+        Vector3 fwd;
+        if (torso != null)
+        {
+            fwd = Vector3.ProjectOnPlane(torso.forward, up);
+            if (fwd.sqrMagnitude < 1e-4f)
+                fwd = Vector3.forward;
+        }
+        else
+        {
+            fwd = Vector3.forward;
+        }
+
+        fwd.Normalize();
+        Vector3 right = Vector3.Cross(up, fwd);
+
+        return (fwd, up, right);
     }
+
     #endregion
 }

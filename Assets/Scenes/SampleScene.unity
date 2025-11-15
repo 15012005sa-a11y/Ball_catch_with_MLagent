@@ -947,7 +947,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &196848749
 Transform:
   m_ObjectHideFlags: 0
@@ -976,20 +976,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   leftTarget: {fileID: 481408891}
-  leftHint: {fileID: 0}
+  leftHint: {fileID: 1974780733}
   rightTarget: {fileID: 2132344154}
-  rightHint: {fileID: 0}
+  rightHint: {fileID: 1609345982}
   torso: {fileID: 2099404004}
   spawner: {fileID: 500489876}
   moveSpeed: 13
-  followHeight: 1.2
-  catchOffsetZ: 0.5
+  followHeight: 0.6
+  catchOffsetZ: 0.6
   lateralOffset: 0.25
   reacDelay: 0.08
   minForward: 0.15
-  chestOffset: 0.1
-  headOffset: 0.15
-  maxReach: 0.9
+  chestOffset: 0.05
+  headOffset: 0.7
+  maxReach: 1.2
   ballTag: Ball
 --- !u!1 &200504516
 GameObject:
@@ -19438,9 +19438,9 @@ MonoBehaviour:
     VectorActionDescriptions: []
     VectorActionSpaceType: 0
     hasUpgradedBrainParametersWithActionSpec: 1
-  m_Model: {fileID: 0}
+  m_Model: {fileID: 5022602860645237092, guid: 6946e5c4009ebf645964d243ef3485ce, type: 3}
   m_InferenceDevice: 0
-  m_BehaviorType: 0
+  m_BehaviorType: 2
   m_BehaviorName: CoachAgent
   TeamId: 0
   m_UseChildSensors: 1

@@ -155,6 +155,5 @@ public class CoachAgent : Agent
         }
 
         Debug.Log($"[AI] result received: success={success}");
-        AddReward(1f);         // временно, только для проверки канала награды
     }
 }

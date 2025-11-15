@@ -64,6 +64,7 @@
   <ItemGroup>
     <Compile Include="Assets\Scenes\Scripts\Level_Text_Banner.cs" />
     <Compile Include="Assets\K2Examples\KinectScripts\MultiScene\LoadFirstLevel.cs" />
+    <Compile Include="Assets\Scenes\CoachAgent\HandCatcher.cs" />
     <Compile Include="Assets\K2Examples\KinectScripts\Samples\SimpleBackgroundRemoval.cs" />
     <Compile Include="Assets\Scenes\Scripts\PatientCard.cs" />
     <Compile Include="Assets\K2Examples\KinectScripts\Filters\JointVelocitiesFilter.cs" />
@@ -317,7 +318,6 @@
     <Compile Include="Assets\K2Examples\KinectScripts\Samples\FollowUserRotation.cs" />
     <Compile Include="Assets\Scenes\Scripts\SpawnPointPlacer.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\PhysicsDemo\Scripts\BarrelTrigger.cs" />
-    <Compile Include="Assets\Scenes\CoachAgent\HandCatcher.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />
