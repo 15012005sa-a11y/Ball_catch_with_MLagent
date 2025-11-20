@@ -132,8 +132,8 @@ public class DifficultyController : MonoBehaviour
         ApplyToGame();
 
         // ¬  ŒÕ÷≈ ApplyDifficulty(...)
-        Debug.Log($"[DIFF] speed={current.ballSpeed:F2}, spawnInt={current.spawnIntervalSec:F2}, " +
-                  $"targetR={current.targetRadius:F2}, spawnR={current.spawnRadius:F2}");
+        Debug.Log($"[DIFF] speed={_ballSpeed:F2}, spawnInt={_spawnInterval:F2}, " +
+          $"targetR={_targetRadius:F2}, spawnR={_spawnRadius:F2}");
 
     }
 
