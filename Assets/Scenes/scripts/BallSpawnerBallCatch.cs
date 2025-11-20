@@ -18,6 +18,12 @@ public class BallSpawnerBallCatch : MonoBehaviour
     [Tooltip("Интервал между появлениями шаров, сек")]
     public float spawnInterval = 1.5f;
 
+    [Header("AI-управление спавном")]
+    [Range(-1f, 1f)]
+    public float aiSpawnBias = 0f;
+    // -1 = максимально левый/нижний спавнпоинт
+    // +1 = максимально правый/верхний
+
     [Tooltip("Текущая скорость шара (может адаптивно меняться)")]
     public float ballSpeed = 2f;
 
@@ -180,6 +186,7 @@ public class BallSpawnerBallCatch : MonoBehaviour
 
         spawnCount = 0;
         catchCount = 0;
+        aiSpawnBias = 0f;
 
         // ❶ применяем пациентские настройки (длительности и т.п.)
         ApplySettingsFromCurrentPatient();
@@ -207,7 +214,9 @@ public class BallSpawnerBallCatch : MonoBehaviour
 
         spawnCount++;
 
-        var spawnPoint = spawnPoints[UnityEngine.Random.Range(0, spawnPoints.Length)];
+        var spawnPoint = GetBiasedSpawnPoint();
+        if (spawnPoint == null) return;
+
         GameObject ball = Instantiate(ballPrefab, spawnPoint.position, Quaternion.identity);
         ball.tag = "Ball"; // гарантируем наличие тега
 
@@ -263,6 +272,38 @@ public class BallSpawnerBallCatch : MonoBehaviour
     {
         ballSpeed = Mathf.Clamp(ballSpeed, ballSpeedClamp.x, ballSpeedClamp.y);
         spawnInterval = Mathf.Max(0.05f, spawnInterval);
+    }
+
+    private Transform GetBiasedSpawnPoint()
+    {
+        if (spawnPoints == null || spawnPoints.Length == 0)
+            return null;
+
+        int n = spawnPoints.Length;
+
+        // 1) Если bias почти 0 – используем все точки (полностью случайно)
+        if (Mathf.Abs(aiSpawnBias) < 0.15f)
+        {
+            int anyIdx = UnityEngine.Random.Range(0, n);
+            return spawnPoints[anyIdx];
+        }
+
+        // 2) Делим массив пополам:
+        //    первые n/2 — левая сторона, вторые n/2 — правая
+        int half = n / 2;
+
+        if (aiSpawnBias < 0f)
+        {
+            // хотим левую сторону
+            int leftIdx = UnityEngine.Random.Range(0, half);
+            return spawnPoints[leftIdx];
+        }
+        else
+        {
+            // хотим правую сторону
+            int rightIdx = UnityEngine.Random.Range(half, n);
+            return spawnPoints[rightIdx];
+        }
     }
 
     private void HandleBallCaught() => catchCount++;

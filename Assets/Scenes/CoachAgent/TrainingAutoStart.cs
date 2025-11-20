@@ -3,17 +3,17 @@ using Unity.MLAgents;
 
 public class TrainingAutoStart : MonoBehaviour
 {
-    public ScoreManager score;   // перетащи в инспекторе
+    public ScoreManager score;   // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
     void Start()
     {
-        // Включаем автозапуск только при обучении/батч-режиме
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅ-пїЅпїЅпїЅпїЅпїЅпїЅ
         if (Academy.Instance.IsCommunicatorOn || Application.isBatchMode)
         {
             if (score != null)
                 score.StartSession();
             else
-                Debug.LogWarning("[AutoStart] ScoreManager не назначен — сессия не запущена.");
+                Debug.LogWarning("[AutoStart] ScoreManager пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.");
         }
     }
 }
