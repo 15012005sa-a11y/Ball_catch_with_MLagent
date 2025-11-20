@@ -124,7 +124,46 @@ public class CoachAgent : Agent
     public override void Heuristic(in ActionBuffers actionsOut)
     {
         var ca = actionsOut.ContinuousActions;
-        ca[0] = ca[1] = ca[2] = ca[3] = ca[4] = 0;
+
+        // Инициализируем нулями
+        ca[0] = 0; // Spawn Interval Delta
+        ca[1] = 0; // Ball Speed Delta
+        ca[2] = 0; // Target Radius Delta
+        ca[3] = 0; // Spawn Radius Delta
+        ca[4] = 0; // Spawn Bias
+
+        if (perf == null) return;
+
+        // Логика "Эвристики": имитируем желаемое поведение тренера
+
+        float currentSR = perf.SuccessRate01; // Успешность (0..1)
+
+        // Порог толерантности (чтобы не дергалось, если игрок играет ровно на targetSR)
+        float threshold = 0.1f;
+
+        // --- Логика изменения Скорости (Action 1) и Интервала (Action 0) ---
+
+        // Если игрок играет СЛИШКОМ ХОРОШО (разбивает много шаров)
+        if (currentSR > targetSR + threshold)
+        {
+            // Увеличиваем скорость (ca[1] > 0)
+            ca[1] = 0.5f;
+            // Уменьшаем интервал спавна, чтобы было динамичнее (ca[0] < 0)
+            ca[0] = -0.2f;
+        }
+        // Если игрок играет ПЛОХО (много пропускает)
+        else if (currentSR < targetSR - threshold)
+        {
+            // Уменьшаем скорость (ca[1] < 0)
+            ca[1] = -0.5f;
+            // Увеличиваем интервал, даем передохнуть (ca[0] > 0)
+            ca[0] = 0.2f;
+        }
+
+        // Примечание: 
+        // Значения 0.5f и -0.5f — это "сила" нажатия на педаль газа/тормоза.
+        // В DifficultyController они умножаются на dBallSpeedMax (0.5), 
+        // итоговое изменение будет около 0.25 м/с за решение.
     }
 
     // === Reward/Decision cadence ===

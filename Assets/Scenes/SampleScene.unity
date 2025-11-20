@@ -19433,7 +19433,7 @@ MonoBehaviour:
   difficulty: {fileID: 1910140008}
   perf: {fileID: 1910140007}
   spawner: {fileID: 500489876}
-  targetSR: 0.7
+  targetSR: 0.75
   maxReactionSec: 2
   dSpawnIntervalMax: 0.05
   dBallSpeedMax: 0.2
@@ -19515,7 +19515,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   spawner: {fileID: 500489876}
   spawnIntervalSecRange: {x: 0.5, y: 3}
-  ballSpeedRange: {x: 0.2, y: 5}
+  ballSpeedRange: {x: 0.2, y: 8}
   targetRadiusRange: {x: 0.05, y: 0.2}
   spawnRadiusRange: {x: 0.2, y: 1.5}
   lerpRate: 0.15

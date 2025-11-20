@@ -291,6 +291,7 @@
     <Compile Include="Assets\K2Examples\KinectDemos\FaceTrackingDemo\Scripts\BlendShapeFaceController.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\FittingRoomDemo\Scripts\OverlayController.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\DropdownSample.cs" />
+    <Compile Include="Assets\Scenes\Scripts\GameModeSwitcher.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\FittingRoomDemo\Scripts\CloudFaceScripts\FaceObjs\ClientError.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_PhoneNumberValidator.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\VisualizerDemo\Scripts\MousePointOverlayer.cs" />
@@ -305,7 +306,6 @@
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexZoom.cs" />
     <Compile Include="Assets\Scenes\1.2 UI scripts\SelectedLabel.cs" />
     <Compile Include="Assets\Scenes\1.2 UI scripts\AppShellNav.cs" />
-    <Compile Include="Assets\Scenes\CoachAgent\TrainingAutoStart.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\ProjectorDemo\Scripts\RoomAliveToolkit\ProjectorCameraEnsemble.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\AvatarsDemo\Scripts\CameraPitchCorrector.cs" />
     <Compile Include="Assets\K2Examples\KinectScripts\ForegroundBlender.cs" />
@@ -318,7 +318,7 @@
     <Compile Include="Assets\K2Examples\KinectScripts\Samples\FollowUserRotation.cs" />
     <Compile Include="Assets\Scenes\Scripts\SpawnPointPlacer.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\PhysicsDemo\Scripts\BarrelTrigger.cs" />
-    <Compile Include="Assets\Scenes\Scripts\GameModeSwitcher.cs" />
+    <Compile Include="Assets\Scenes\CoachAgent\TrainingAutoStart.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />
