@@ -947,7 +947,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &196848749
 Transform:
   m_ObjectHideFlags: 0
@@ -4905,6 +4905,7 @@ GameObject:
   - component: {fileID: 500489876}
   - component: {fileID: 500489878}
   - component: {fileID: 500489877}
+  - component: {fileID: 500489879}
   m_Layer: 0
   m_Name: GameController
   m_TagString: Untagged
@@ -5100,6 +5101,22 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &500489879
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 500489873}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0b2892bda01f2534b9a10bb2d827641d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mode: 1
+  simulator: {fileID: 196848747}
+  rigBuilder: {fileID: 2099404005}
+  avatarController: {fileID: 2099404006}
 --- !u!1 &505322174
 GameObject:
   m_ObjectHideFlags: 0
@@ -6712,7 +6729,7 @@ Light:
   serializedVersion: 10
   m_Type: 1
   m_Shape: 0
-  m_Color: {r: 1, g: 0.95686275, b: 0.8392157, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_Intensity: 1
   m_Range: 10
   m_SpotAngle: 30
@@ -8353,7 +8370,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 802933615}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.513, y: 1.223, z: 4.1}
+  m_LocalPosition: {x: 0.513, y: 1.223, z: 5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -8529,6 +8546,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 8013592909078399980, guid: 37495b644a8842442a686e6bb70e8ad6, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8013592909078399980, guid: 37495b644a8842442a686e6bb70e8ad6, type: 3}
       propertyPath: m_Controller
       value: 
       objectReference: {fileID: 9100000, guid: f55cc0fca39db9c4e812bbd94073c34e, type: 2}
@@ -8599,6 +8620,10 @@ PrefabInstance:
     - target: {fileID: 8013592909085702620, guid: 37495b644a8842442a686e6bb70e8ad6, type: 3}
       propertyPath: m_Name
       value: U_CharacterBack
+      objectReference: {fileID: 0}
+    - target: {fileID: 8013592909145009404, guid: 37495b644a8842442a686e6bb70e8ad6, type: 3}
+      propertyPath: posRelativeToCamera
+      value: 
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 37495b644a8842442a686e6bb70e8ad6, type: 3}
@@ -8919,7 +8944,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 871555509}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.528, y: 1.229, z: 4}
+  m_LocalPosition: {x: -0.528, y: 1.229, z: 5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -15692,7 +15717,7 @@ AudioSource:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1598290628}
-  m_Enabled: 0
+  m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
@@ -17223,7 +17248,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1685117675}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.674, y: 1.454, z: 4}
+  m_LocalPosition: {x: -0.674, y: 1.454, z: 5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -17682,7 +17707,8 @@ MonoBehaviour:
   allowTurnArounds: 0
   usersFaceBackwards: 0
   allowedHandRotations: 1
-  avatarControllers: []
+  avatarControllers:
+  - {fileID: 2099404006}
   playerCalibrationPose: 0
   playerCommonGestures: 
   minTimeBetweenGestures: 0.7
@@ -19409,12 +19435,12 @@ MonoBehaviour:
   spawner: {fileID: 500489876}
   targetSR: 0.7
   maxReactionSec: 2
-  dSpawnIntervalMax: 0.15
-  dBallSpeedMax: 0.5
-  dTargetRadiusMax: 0.03
-  dSpawnRadiusMax: 0.1
+  dSpawnIntervalMax: 0.05
+  dBallSpeedMax: 0.2
+  dTargetRadiusMax: 0.02
+  dSpawnRadiusMax: 0.05
   dSpawnBiasMax: 0.3
-  decisionsEveryNResults: 2
+  decisionsEveryNResults: 8
   windowsPerEpisode: 30
 --- !u!114 &1910140005
 MonoBehaviour:
@@ -19492,7 +19518,7 @@ MonoBehaviour:
   ballSpeedRange: {x: 0.2, y: 5}
   targetRadiusRange: {x: 0.05, y: 0.2}
   spawnRadiusRange: {x: 0.2, y: 1.5}
-  lerpRate: 0.3
+  lerpRate: 0.15
 --- !u!114 &1910140009
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -21475,6 +21501,17 @@ MonoBehaviour:
   - m_Rig: {fileID: 742710223}
     m_Active: 1
   m_Effectors: []
+--- !u!114 &2099404006 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8013592909145009404, guid: 37495b644a8842442a686e6bb70e8ad6, type: 3}
+  m_PrefabInstance: {fileID: 835667447}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 835667448}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 06c52c07402f7274cab64e484b1bddc9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &2105088816
 GameObject:
   m_ObjectHideFlags: 0
