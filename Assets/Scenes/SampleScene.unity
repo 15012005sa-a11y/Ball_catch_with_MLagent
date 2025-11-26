@@ -947,7 +947,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &196848749
 Transform:
   m_ObjectHideFlags: 0
@@ -5113,7 +5113,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0b2892bda01f2534b9a10bb2d827641d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mode: 0
+  mode: 1
   simulator: {fileID: 196848747}
   rigBuilder: {fileID: 2099404005}
   avatarController: {fileID: 2099404006}
@@ -7602,7 +7602,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &742710222
 Transform:
   m_ObjectHideFlags: 0
@@ -8547,7 +8547,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 8013592909078399980, guid: 37495b644a8842442a686e6bb70e8ad6, type: 3}
       propertyPath: m_Enabled
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8013592909078399980, guid: 37495b644a8842442a686e6bb70e8ad6, type: 3}
       propertyPath: m_Controller

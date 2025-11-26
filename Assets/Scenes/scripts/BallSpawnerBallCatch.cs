@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Reflection;
 using UnityEngine;
+using System.Linq;
+using System.Collections.Generic;
 
+// ВОТ ЭТОЙ СТРОКИ НЕ ХВАТАЛО:
 public class BallSpawnerBallCatch : MonoBehaviour
 {
     [Header("Настройки спавна")]
@@ -11,8 +14,9 @@ public class BallSpawnerBallCatch : MonoBehaviour
 
     public void SetBallSpeed(float v) { ballSpeed = v; }
     public void SetSpawnInterval(float v) { spawnInterval = v; }
-    public void SetSpawnRadius(float v) { /* если появится поле spawnRadius, присвоить его здесь */ }
-    public void SetTargetRadius(float v) { /* если появится поле targetRadius, присвоить его здесь */ }       // если используешь доп. логику попадания
+    // Реализация методов управления для агента
+    public void SetSpawnRadius(float normalizedRadius) { currentSpawnSpread = Mathf.Clamp01(normalizedRadius); }
+    public void SetTargetRadius(float v) { /* если появится поле targetRadius, присвоить его здесь */ }
 
     [Header("Параметры движения (текущие)")]
     [Tooltip("Интервал между появлениями шаров, сек")]
@@ -46,6 +50,13 @@ public class BallSpawnerBallCatch : MonoBehaviour
     [Tooltip("Включить правила уровня 2 (синие/красные шары)")]
     public bool useColors = false;
 
+    // Добавляем переменную для ширины охвата (0 = одна точка, 1 = все точки)
+    [Header("AI Control Params")]
+    [Range(0f, 1f)] public float currentSpawnSpread = 1.0f;
+
+    // Список отсортированных точек
+    private List<Transform> _sortedSpawnPoints;
+
     [Range(0f, 1f)]
     [Tooltip("Вероятность КРАСНОГО шара (0.35 = 35%). Синий = 1 - красный.")]
     public float redChance = 0.35f;
@@ -77,8 +88,13 @@ public class BallSpawnerBallCatch : MonoBehaviour
 
     private void Start()
     {
-        ApplySettingsFromCurrentPatient();
+        // 1. Сортируем точки слева направо (по X) один раз при старте
+        if (spawnPoints != null)
+        {
+            _sortedSpawnPoints = spawnPoints.OrderBy(t => t.position.x).ToList();
+        }
 
+        ApplySettingsFromCurrentPatient();
         if (ScoreManager.Instance != null)
             ScoreManager.Instance.OnGoodCatch += HandleBallCaught;
     }
@@ -95,7 +111,7 @@ public class BallSpawnerBallCatch : MonoBehaviour
     // ---------- Применение настроек ----------
     private void OnSelectedPatientChanged(Patient p)
     {
-        if (p != null) ApplySettings(p.settings); // settings может быть GameSettings или PatientSettings
+        if (p != null) ApplySettings(p.settings);
     }
 
     private void ApplySettingsFromCurrentPatient()
@@ -104,15 +120,10 @@ public class BallSpawnerBallCatch : MonoBehaviour
         ApplySettings(s);
     }
 
-    /// <summary>
-    /// Универсальный приём настроек: принимает и GameSettings, и PatientSettings,
-    /// читая значения по алиасам свойств/полей.
-    /// </summary>
     public void ApplySettings(object settings)
     {
         if (settings == null) return;
 
-        // Попробуем вызвать EnsureDefaults(), если он есть
         try
         {
             var m = settings.GetType().GetMethod("EnsureDefaults",
@@ -121,36 +132,32 @@ public class BallSpawnerBallCatch : MonoBehaviour
         }
         catch { /* игнор */ }
 
-        // Алиасы для чтения (имена в PascalCase и camelCase)
+        // Алиасы для чтения
         float sSpawn = GetFloat(settings, new[] { "SpawnInterval", "spawnInterval" }, 1.5f);
         float sSpeed = GetFloat(settings, new[] { "BallSpeed", "ballSpeed" }, 1.0f);
         float sInc = GetFloat(settings, new[] { "SpeedIncreaseFactor", "speedIncreaseFactor" }, 1.1f);
         float sDec = GetFloat(settings, new[] { "SpeedDecreaseFactor", "speedDecreaseFactor" }, 0.6f);
         float sRed = GetFloat(settings, new[] { "RedChance", "redChance" }, 0.35f);
 
-        // ── КОНЕЦ ApplySettings(...) ЗАМЕНИ ─────────────────────────
         spawnInterval = Mathf.Clamp(sSpawn, 0.05f, 10f);
         baseBallSpeed = Mathf.Max(0.05f, sSpeed);
-        ballSpeed = baseBallSpeed; // сброс к базе при применении
+        ballSpeed = baseBallSpeed;
         speedIncreaseFactor = Mathf.Max(0.1f, sInc);
         speedDecreaseFactor = Mathf.Max(0.1f, sDec);
         redChance = Mathf.Clamp01(sRed);
 
-        // перезапускаем расписание НАДЁЖНО
-        CancelInvoke(); // снимаем любые Invoke/InvokeRepeating
+        CancelInvoke();
         if (gameObject.activeInHierarchy && isSpawning)
         {
             InvokeRepeating(nameof(SpawnBall), 0.01f, spawnInterval);
         }
 
-        // (опционально) обновим скорость уже летящих шаров
         TryUpdateActiveBallsSpeed(baseBallSpeed);
 
         Debug.Log($"[Spawner] Settings applied: spawn={spawnInterval:F2}s, speed(base)={baseBallSpeed:F2}, " +
                   $"inc×{speedIncreaseFactor:F2}, dec×{speedDecreaseFactor:F2}, redChance={redChance:0.##}");
     }
 
-    // Применить новую базовую скорость к уже выпущенным шарам
     private void TryUpdateActiveBallsSpeed(float newBaseSpeed)
     {
         var rbs = FindObjectsOfType<Rigidbody>(false);
@@ -161,7 +168,6 @@ public class BallSpawnerBallCatch : MonoBehaviour
             if (!rb.gameObject.name.ToLower().Contains("ball") && !rb.gameObject.CompareTag("Ball"))
                 continue;
 
-            // если у шара есть свой setter скорости — используем
             var mb = rb.GetComponent<MonoBehaviour>();
             if (mb)
             {
@@ -173,7 +179,6 @@ public class BallSpawnerBallCatch : MonoBehaviour
                     try { m.Invoke(mb, new object[] { newBaseSpeed }); continue; } catch { }
                 }
             }
-            // фоллбэк: поправим скорость через Rigidbody
             if (rb.velocity.sqrMagnitude > 0.0001f)
                 rb.velocity = rb.velocity.normalized * newBaseSpeed;
         }
@@ -188,13 +193,12 @@ public class BallSpawnerBallCatch : MonoBehaviour
         catchCount = 0;
         aiSpawnBias = 0f;
 
-        // ❶ применяем пациентские настройки (длительности и т.п.)
         ApplySettingsFromCurrentPatient();
 
-        // ❷ затем — персональный тюнинг спавнера для текущего пациента
+        // Если PreferencesPanel нет в проекте, закомментируйте следующие 3 строки:
         var pid = PatientManager.Instance?.Current?.id ?? -1;
-        var tune = PreferencesPanel.LoadSpawnerTuning(pid);   // сделай метод public static
-        if (tune != null) ApplySettings(tune);
+        // var tune = PreferencesPanel.LoadSpawnerTuning(pid); 
+        // if (tune != null) ApplySettings(tune);
 
         isSpawning = true;
         InvokeRepeating(nameof(SpawnBall), 1f, spawnInterval);
@@ -218,7 +222,7 @@ public class BallSpawnerBallCatch : MonoBehaviour
         if (spawnPoint == null) return;
 
         GameObject ball = Instantiate(ballPrefab, spawnPoint.position, Quaternion.identity);
-        ball.tag = "Ball"; // гарантируем наличие тега
+        ball.tag = "Ball";
 
         int ballId = nextBallId++;
         var collision = ball.GetComponent<BallCollision>();
@@ -253,7 +257,6 @@ public class BallSpawnerBallCatch : MonoBehaviour
             rb.velocity = (target - spawnPoint.position).normalized * ballSpeed;
         }
 
-        // стало — адаптация только если разрешена, плюс клампы
         if (selfAdaptive && spawnCount % 10 == 0)
         {
             float ratio = catchCount / 10f;
@@ -265,7 +268,6 @@ public class BallSpawnerBallCatch : MonoBehaviour
         }
 
         OnBallSpawned?.Invoke(ball);
-
     }
 
     private void ClampRuntime()
@@ -276,39 +278,47 @@ public class BallSpawnerBallCatch : MonoBehaviour
 
     private Transform GetBiasedSpawnPoint()
     {
-        if (spawnPoints == null || spawnPoints.Length == 0)
+        if (_sortedSpawnPoints == null || _sortedSpawnPoints.Count == 0)
             return null;
 
-        int n = spawnPoints.Length;
+        int count = _sortedSpawnPoints.Count;
 
-        // 1) Если bias почти 0 – используем все точки (полностью случайно)
-        if (Mathf.Abs(aiSpawnBias) < 0.15f)
+        // 1. Размер окна
+        float windowSizeFloat = Mathf.Lerp(1f, count, currentSpawnSpread);
+        int windowSize = Mathf.RoundToInt(windowSizeFloat);
+
+        // 2. Центр с учетом Bias
+        float centerIndex = (count - 1) / 2f;
+        float biasOffset = aiSpawnBias * (count / 2f);
+        float targetCenter = centerIndex + biasOffset;
+
+        // 3. Границы
+        int minIndex = Mathf.RoundToInt(targetCenter - (windowSize / 2f));
+        int maxIndex = minIndex + windowSize - 1;
+
+        // 4. Коррекция границ
+        if (minIndex < 0)
         {
-            int anyIdx = UnityEngine.Random.Range(0, n);
-            return spawnPoints[anyIdx];
+            minIndex = 0;
+            maxIndex = minIndex + windowSize - 1;
+        }
+        if (maxIndex >= count)
+        {
+            maxIndex = count - 1;
+            minIndex = maxIndex - windowSize + 1;
         }
 
-        // 2) Делим массив пополам:
-        //    первые n/2 — левая сторона, вторые n/2 — правая
-        int half = n / 2;
+        minIndex = Mathf.Clamp(minIndex, 0, count - 1);
+        maxIndex = Mathf.Clamp(maxIndex, 0, count - 1);
 
-        if (aiSpawnBias < 0f)
-        {
-            // хотим левую сторону
-            int leftIdx = UnityEngine.Random.Range(0, half);
-            return spawnPoints[leftIdx];
-        }
-        else
-        {
-            // хотим правую сторону
-            int rightIdx = UnityEngine.Random.Range(half, n);
-            return spawnPoints[rightIdx];
-        }
+        // 5. Случайная точка внутри окна
+        int finalIndex = UnityEngine.Random.Range(minIndex, maxIndex + 1);
+
+        return _sortedSpawnPoints[finalIndex];
     }
 
     private void HandleBallCaught() => catchCount++;
 
-    // ---------- Reflection helpers ----------
     private static readonly BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
     private static float GetFloat(object obj, string[] names, float defVal)
@@ -317,14 +327,12 @@ public class BallSpawnerBallCatch : MonoBehaviour
 
         foreach (var n in names)
         {
-            // Поле
             var f = obj.GetType().GetField(n, BF);
             if (f != null)
             {
                 try { return Convert.ToSingle(f.GetValue(obj)); }
                 catch { }
             }
-            // Свойство
             var p = obj.GetType().GetProperty(n, BF);
             if (p != null && p.CanRead)
             {

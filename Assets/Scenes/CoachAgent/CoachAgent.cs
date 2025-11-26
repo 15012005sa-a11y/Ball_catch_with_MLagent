@@ -94,6 +94,15 @@ public class CoachAgent : Agent
         float a3 = Mathf.Clamp(a[3], -1f, 1f); // dSpawnR
         float a4 = Mathf.Clamp(a[4], -1f, 1f); // dSpawnBias (точка появления)
 
+        if (spawner != null)
+        {
+            // Меняем Bias напрямую в спавнере
+            spawner.aiSpawnBias = Mathf.Clamp(
+                spawner.aiSpawnBias + a4 * dSpawnBiasMax,
+                -1f, 1f
+            );
+        }
+
 #if UNITY_EDITOR
     if ((Time.frameCount & 31) == 0)
         Debug.Log($"[AI] act: dSpawn={a0:F3}, dSpeed={a1:F3}, dTargetR={a2:F3}, dSpawnR={a3:F3}, bias={a4:F3}");

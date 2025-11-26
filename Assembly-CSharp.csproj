@@ -59,7 +59,7 @@
     <UnityVersion>2021.3.45f1</UnityVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Analyzer Include="C:\Users\Kaznu\.vscode\extensions\visualstudiotoolsforunity.vstuc-1.1.3\Analyzers\Microsoft.Unity.Analyzers.dll" />
+    <Analyzer Include="C:\Users\Kaznu\.vscode\extensions\visualstudiotoolsforunity.vstuc-1.2.0\Analyzers\Microsoft.Unity.Analyzers.dll" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Scenes\Scripts\Level_Text_Banner.cs" />
@@ -107,6 +107,7 @@
     <Compile Include="Assets\K2Examples\KinectDemos\GesturesDemo\Scripts\ModelGestureListener.cs" />
     <Compile Include="Assets\K2Examples\KinectScripts\Samples\JointPositionView.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_TextSelector_A.cs" />
+    <Compile Include="Assets\Scenes\CoachAgent\TrainingAutoStart.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\FaceTrackingDemo\Scripts\ViewFaceProperties.cs" />
     <Compile Include="Assets\Scenes\1.2 UI scripts\AppShellBoot.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\VariousDemos\Scripts\SimpleHolographicCamera.cs" />
@@ -318,7 +319,6 @@
     <Compile Include="Assets\K2Examples\KinectScripts\Samples\FollowUserRotation.cs" />
     <Compile Include="Assets\Scenes\Scripts\SpawnPointPlacer.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\PhysicsDemo\Scripts\BarrelTrigger.cs" />
-    <Compile Include="Assets\Scenes\CoachAgent\TrainingAutoStart.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />

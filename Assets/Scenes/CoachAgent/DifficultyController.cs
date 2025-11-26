@@ -143,9 +143,13 @@ public class DifficultyController : MonoBehaviour
     private void ApplyToGame()
     {
         if (!spawner) return;
+
         spawner.spawnInterval = Mathf.Max(0.05f, _spawnInterval);
         spawner.ballSpeed = Mathf.Max(0.05f, _ballSpeed);
-        // Примечание: если у вашего спавнера позже появятся поля targetRadius/spawnRadius,
-        // просто добавьте сюда присваивания по аналогии.
+
+        // --- НОВОЕ: Передаем Spawn Radius (Spread) ---
+        // Нормализуем значение, чтобы передать 0..1 в спавнер
+        float normRadius = Mathf.InverseLerp(spawnRadiusRange.x, spawnRadiusRange.y, _spawnRadius);
+        spawner.SetSpawnRadius(normRadius);
     }
 }
