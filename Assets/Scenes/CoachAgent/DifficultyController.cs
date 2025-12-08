@@ -1,41 +1,43 @@
 using UnityEngine;
 
 /// <summary>
-/// DifficultyController: централизует параметры сложности для Ball Catch
-/// — хранит внутреннее «состояние сложности» (spawnInterval, ballSpeed, targetRadius, spawnRadius)
-/// — безопасно применяет ТОЛЬКО те параметры, которые поддерживает ваш спавнер (BallSpawnerBallCatch)
-/// — даёт нормированное состояние (0..1) для CoachAgent
-/// — защищает от обнуления скорости шара и слишком маленького интервала
-/// — ранняя инициализация (Awake) + DefaultExecutionOrder, чтобы значения были установлены ДО других скриптов
+/// DifficultyController: пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ Ball Catch
+/// пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (spawnInterval, ballSpeed, targetRadius, spawnRadius)
+/// пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (BallSpawnerBallCatch)
+/// пїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (0..1) пїЅпїЅпїЅ CoachAgent
+/// пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+/// пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (Awake) + DefaultExecutionOrder, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 /// </summary>
 [DefaultExecutionOrder(-100)]
 public class DifficultyController : MonoBehaviour
 {
-    // ===== Тип спавнера в вашем проекте =====
+    // ===== пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ =====
     [Header("Game refs")]
-    [SerializeField] private BallSpawnerBallCatch spawner; // перетащи свой компонент в Inspector
+    [SerializeField] private BallSpawnerBallCatch spawner; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ Inspector
 
-    // ===== Диапазоны (жёсткие клипы) =====
+    // ===== пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ) =====
     [Header("Hard clamps (game units)")]
     public Vector2 spawnIntervalSecRange = new(0.50f, 3.00f);
     public Vector2 ballSpeedRange = new(0.20f, 5.00f);
-    public Vector2 targetRadiusRange = new(0.05f, 0.20f);   // используется только во внутреннем состоянии
-    public Vector2 spawnRadiusRange = new(0.20f, 1.50f);   // используется только во внутреннем состоянии
+    public Vector2 targetRadiusRange = new(0.05f, 0.20f);   // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+    public Vector2 spawnRadiusRange = new(0.20f, 1.50f);   // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
-    // ===== Плавность между мини-раундами =====
+    // ===== пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ-пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ =====
     [Header("Smoothing")]
     [Range(0f, 1f)] public float lerpRate = 0.30f;
+    public float BallSpeed = 5f;       
+    public float SpawnInterval = 2f;
 
-    // ===== Текущее внутреннее состояние сложности (игровые единицы) =====
+    // ===== пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ) =====
     private float _spawnInterval;
     private float _ballSpeed;
     private float _targetRadius;
     private float _spawnRadius;
 
-    // для штрафа в агенте за резкие изменения
+    // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     public float LastRoundChangeMagnitude01 { get; private set; }
 
-    // ===== Нормированное состояние для CoachAgent =====
+    // ===== пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ CoachAgent =====
     public struct State01
     {
         public float spawnInterval01, ballSpeed01, targetRadius01, spawnRadius01, reserve01;
@@ -44,19 +46,19 @@ public class DifficultyController : MonoBehaviour
 
     private void Awake()
     {
-        // Ранняя инициализация: задаём дефолт и сразу применяем в спавнер
+        // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         ResetToDefault();
     }
 
     private void OnValidate()
     {
-        // Защита диапазонов от некорректных значений в инспекторе
+        // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         if (spawnIntervalSecRange.y < spawnIntervalSecRange.x) spawnIntervalSecRange.y = spawnIntervalSecRange.x + 0.01f;
         if (ballSpeedRange.y < ballSpeedRange.x) ballSpeedRange.y = ballSpeedRange.x + 0.01f;
         if (targetRadiusRange.y < targetRadiusRange.x) targetRadiusRange.y = targetRadiusRange.x + 0.001f;
         if (spawnRadiusRange.y < spawnRadiusRange.x) spawnRadiusRange.y = spawnRadiusRange.x + 0.001f;
 
-        // Автоклип внутренних значений, если редактировали в PlayMode
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ PlayMode
         _spawnInterval = Mathf.Clamp(_spawnInterval, spawnIntervalSecRange.x, spawnIntervalSecRange.y);
         _ballSpeed = Mathf.Clamp(_ballSpeed, ballSpeedRange.x, ballSpeedRange.y);
         _targetRadius = Mathf.Clamp(_targetRadius, targetRadiusRange.x, targetRadiusRange.y);
@@ -66,7 +68,7 @@ public class DifficultyController : MonoBehaviour
     }
 
     /// <summary>
-    /// Сброс к «безопасным» значениям по умолчанию и применение в игру.
+    /// пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ.
     /// </summary>
     public void ResetToDefault()
     {
@@ -79,7 +81,7 @@ public class DifficultyController : MonoBehaviour
     }
 
     /// <summary>
-    /// Возвращает нормированное состояние в [0..1] для наблюдений агента.
+    /// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ [0..1] пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.
     /// </summary>
     public State01 GetState01()
     {
@@ -94,7 +96,7 @@ public class DifficultyController : MonoBehaviour
     }
 
     /// <summary>
-    /// Применяет приращения сложности (делает клипы, плавность и обновляет спавнер).
+    /// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ).
     /// </summary>
     public void ApplyDeltas(float dSpawn, float dSpeed, float dRadius, float dSpawnRad)
     {
@@ -102,20 +104,30 @@ public class DifficultyController : MonoBehaviour
         float prevV = _ballSpeed;
         float prevR = _targetRadius;
         float prevSR = _spawnRadius;
+        
+        // === РРЎРџР РђР’Р›Р•РќРР• Р—Р”Р•РЎР¬ ===
+        // РСЃРїРѕР»СЊР·СѓРµРј dSpeed (РѕРЅ РµСЃС‚СЊ РІ Р°СЂРіСѓРјРµРЅС‚Р°С…) Рё dSpawn (РІРјРµСЃС‚Рѕ РЅРµСЃСѓС‰РµСЃС‚РІСѓСЋС‰РµРіРѕ dInterval)
+        BallSpeed = Mathf.Clamp(BallSpeed + dSpeed, 1f, 15f); 
+        SpawnInterval = Mathf.Clamp(SpawnInterval + dSpawn, 0.5f, 5f); // Р‘С‹Р»Рѕ dInterval -> СЃС‚Р°Р»Рѕ dSpawn
+        // =========================
 
-        // 1) Сырые дельты + клипы
+        // 1) РџСЂРёРјРµРЅСЏРµРј РёР·РјРµРЅРµРЅРёСЏ Рє РІРЅСѓС‚СЂРµРЅРЅРёРј РїРµСЂРµРјРµРЅРЅС‹Рј
         _spawnInterval = Mathf.Clamp(_spawnInterval + dSpawn, spawnIntervalSecRange.x, spawnIntervalSecRange.y);
         _ballSpeed = Mathf.Clamp(_ballSpeed + dSpeed, ballSpeedRange.x, ballSpeedRange.y);
         _targetRadius = Mathf.Clamp(_targetRadius + dRadius, targetRadiusRange.x, targetRadiusRange.y);
         _spawnRadius = Mathf.Clamp(_spawnRadius + dSpawnRad, spawnRadiusRange.x, spawnRadiusRange.y);
 
-        // 2) Плавность перехода, чтобы не дёргалось
+        // 2) РЎРіР»Р°Р¶РёРІР°РЅРёРµ (Lerp), С‡С‚РѕР±С‹ РёР·РјРµРЅРµРЅРёСЏ РЅРµ Р±С‹Р»Рё СЃР»РёС€РєРѕРј СЂРµР·РєРёРјРё
         _spawnInterval = Mathf.Lerp(prevS, _spawnInterval, lerpRate);
         _ballSpeed = Mathf.Lerp(prevV, _ballSpeed, lerpRate);
         _targetRadius = Mathf.Lerp(prevR, _targetRadius, lerpRate);
         _spawnRadius = Mathf.Lerp(prevSR, _spawnRadius, lerpRate);
 
-        // 3) Норма изменения в пространстве 01 (для наград/штрафов агента)
+        // РЎРёРЅС…СЂРѕРЅРёР·РёСЂСѓРµРј РїСѓР±Р»РёС‡РЅС‹Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ СЃ РІРЅСѓС‚СЂРµРЅРЅРёРјРё (С‡С‚РѕР±С‹ РѕРЅРё РЅРµ СЂР°СЃС…РѕРґРёР»РёСЃСЊ)
+        BallSpeed = _ballSpeed;
+        SpawnInterval = _spawnInterval;
+
+        // 3) Р Р°СЃС‡РµС‚ РјР°РіРЅРёС‚СѓРґС‹ РёР·РјРµРЅРµРЅРёР№ (РґР»СЏ Р°РіРµРЅС‚Р°)
         var st = GetState01();
         float ps = Mathf.InverseLerp(spawnIntervalSecRange.x, spawnIntervalSecRange.y, prevS);
         float pv = Mathf.InverseLerp(ballSpeedRange.x, ballSpeedRange.y, prevV);
@@ -128,17 +140,15 @@ public class DifficultyController : MonoBehaviour
             (st.spawnRadius01 - psr) * (st.spawnRadius01 - psr)
         );
 
-        // 4) Применение к игре
+        // 4) РџСЂРёРјРµРЅРµРЅРёРµ Рє РёРіСЂРµ
         ApplyToGame();
 
-        // В КОНЦЕ ApplyDifficulty(...)
         Debug.Log($"[DIFF] speed={_ballSpeed:F2}, spawnInt={_spawnInterval:F2}, " +
           $"targetR={_targetRadius:F2}, spawnR={_spawnRadius:F2}");
-
     }
 
     /// <summary>
-    /// Передаёт поддерживаемые параметры в спавнер. Никогда не даёт 0.
+    /// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ 0.
     /// </summary>
     private void ApplyToGame()
     {
@@ -147,8 +157,8 @@ public class DifficultyController : MonoBehaviour
         spawner.spawnInterval = Mathf.Max(0.05f, _spawnInterval);
         spawner.ballSpeed = Mathf.Max(0.05f, _ballSpeed);
 
-        // --- НОВОЕ: Передаем Spawn Radius (Spread) ---
-        // Нормализуем значение, чтобы передать 0..1 в спавнер
+        // --- пїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ Spawn Radius (Spread) ---
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ 0..1 пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         float normRadius = Mathf.InverseLerp(spawnRadiusRange.x, spawnRadiusRange.y, _spawnRadius);
         spawner.SetSpawnRadius(normRadius);
     }

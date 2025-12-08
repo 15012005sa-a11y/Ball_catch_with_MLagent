@@ -40,6 +40,12 @@ public class CoachAgent : Agent
 
     [Header("Episode")]
     [Tooltip("Сколько мини-раундов (окон) в одном эпизоде обучения")]
+
+    [SerializeField] private CoachVisualizer visualizer;
+
+// Свойства должны быть public (или иметь public get), чтобы визуализатор их видел
+    public float CurrentBallSpeed = 5f; 
+    public float CurrentSpawnRate = 2f;
     public int windowsPerEpisode = 30;
     private int _epWindowCount = 0;
 
@@ -86,49 +92,57 @@ public class CoachAgent : Agent
     }
 
     public override void OnActionReceived(ActionBuffers actions)
+{
+    var a = actions.ContinuousActions;
+    float a0 = Mathf.Clamp(a[0], -1f, 1f); // dSpawn (Интервал)
+    float a1 = Mathf.Clamp(a[1], -1f, 1f); // dSpeed (Скорость)
+    float a2 = Mathf.Clamp(a[2], -1f, 1f); // dTargetR
+    float a3 = Mathf.Clamp(a[3], -1f, 1f); // dSpawnR
+    float a4 = Mathf.Clamp(a[4], -1f, 1f); // dSpawnBias
+
+    // 1. Применяем изменения сложности
+    if (difficulty != null)
     {
-        var a = actions.ContinuousActions;
-        float a0 = Mathf.Clamp(a[0], -1f, 1f); // dSpawn
-        float a1 = Mathf.Clamp(a[1], -1f, 1f); // dSpeed
-        float a2 = Mathf.Clamp(a[2], -1f, 1f); // dTargetR
-        float a3 = Mathf.Clamp(a[3], -1f, 1f); // dSpawnR
-        float a4 = Mathf.Clamp(a[4], -1f, 1f); // dSpawnBias (точка появления)
+        difficulty.ApplyDeltas(
+            a0 * dSpawnIntervalMax,
+            a1 * dBallSpeedMax,
+            a2 * dTargetRadiusMax,
+            a3 * dSpawnRadiusMax
+        );
+    }
 
-        if (spawner != null)
-        {
-            // Меняем Bias напрямую в спавнере
-            spawner.aiSpawnBias = Mathf.Clamp(
-                spawner.aiSpawnBias + a4 * dSpawnBiasMax,
-                -1f, 1f
-            );
-        }
+    // 2. Применяем смещение (Bias) в спавнере
+    if (spawner != null)
+    {
+        // У вас в коде это было дважды, я оставил один раз
+        spawner.aiSpawnBias = Mathf.Clamp(
+            spawner.aiSpawnBias + a4 * dSpawnBiasMax,
+            -1f, 1f
+        );
+    }
 
-#if UNITY_EDITOR
+    #if UNITY_EDITOR
     if ((Time.frameCount & 31) == 0)
         Debug.Log($"[AI] act: dSpawn={a0:F3}, dSpeed={a1:F3}, dTargetR={a2:F3}, dSpawnR={a3:F3}, bias={a4:F3}");
-#endif
+    #endif
 
-        // сложность (как было)
-        if (difficulty != null)
-        {
-            difficulty.ApplyDeltas(
-                a0 * dSpawnIntervalMax,
-                a1 * dBallSpeedMax,
-                a2 * dTargetRadiusMax,
-                a3 * dSpawnRadiusMax
-            );
-        }
-
-        // НОВОЕ: смещение точки спавна
-        if (spawner != null)
-        {
-            // аккуратно двигаем bias в -1..1
-            spawner.aiSpawnBias = Mathf.Clamp(
-                spawner.aiSpawnBias + a4 * dSpawnBiasMax,
-                -1f, 1f
-            );
-        }
+    // --- 3. ОБНОВЛЕНИЕ UI (НОВАЯ ЧАСТЬ) ---
+    if (visualizer != null && difficulty != null && spawner != null)
+    {
+        // Нам нужно достать ТЕКУЩИЕ значения из difficulty контроллера.
+        // Предполагаем, что у difficulty есть публичные поля или свойства.
+        // Если их нет, добавьте (см. ниже).
+        
+        visualizer.UpdateDashboard(
+            difficulty.BallSpeed,        // Текущая скорость
+            difficulty.SpawnInterval,    // Текущий интервал
+            spawner.aiSpawnBias,         // Текущее смещение
+            GetCumulativeReward(),       // Текущая награда
+            a1,                          // Дельта скорости (чтобы понять намерение)
+            a0                           // Дельта интервала
+        );
     }
+}
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {
