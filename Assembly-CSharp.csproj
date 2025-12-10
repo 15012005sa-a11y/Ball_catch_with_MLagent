@@ -111,6 +111,7 @@
     <Compile Include="Assets\K2Examples\KinectDemos\FaceTrackingDemo\Scripts\ViewFaceProperties.cs" />
     <Compile Include="Assets\Scenes\1.2 UI scripts\AppShellBoot.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\VariousDemos\Scripts\SimpleHolographicCamera.cs" />
+    <Compile Include="Assets\Scenes\CoachAgent\CoachVisualizer.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\OverlayDemo\Scripts\HandOverlayer.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\BlobDetectionDemo\Scripts\BlobDetector.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\FittingRoomDemo\Scripts\CloudFaceScripts\CloudFaceManager.cs" />
@@ -319,7 +320,6 @@
     <Compile Include="Assets\K2Examples\KinectScripts\Samples\FollowUserRotation.cs" />
     <Compile Include="Assets\Scenes\Scripts\SpawnPointPlacer.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\PhysicsDemo\Scripts\BarrelTrigger.cs" />
-    <Compile Include="Assets\Scenes\CoachAgent\CoachVisualizer.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />
