@@ -72,6 +72,8 @@ public class BallSpawnerBallCatch : MonoBehaviour
     private int spawnCount = 0;
     private int catchCount = 0;
     private bool isSpawning = false;
+    public bool IsSpawning => isSpawning;
+
     private int nextBallId = 0;
 
     private void OnValidate() { ballSpeed = Mathf.Max(0.05f, ballSpeed); }
@@ -204,6 +206,21 @@ public class BallSpawnerBallCatch : MonoBehaviour
         InvokeRepeating(nameof(SpawnBall), 1f, spawnInterval);
     }
 
+        public void UpdateIntervalSafely(float newInterval)
+    {
+        this.spawnInterval = newInterval;
+        
+        if (IsSpawning) // IsSpawning - твой флаг или проверка IsInvoking()
+        {
+            CancelInvoke(nameof(SpawnBall));
+            
+            // КРИТИЧЕСКИЙ МОМЕНТ:
+            // Первый аргумент (время до первого старта) должен быть равен newInterval.
+            // Если поставить 0f, шар вылетит МГНОВЕННО, создавая burst.
+            InvokeRepeating(nameof(SpawnBall), newInterval, newInterval);
+        }
+    }
+
     public void StopSpawning()
     {
         if (!isSpawning) return;
@@ -268,6 +285,7 @@ public class BallSpawnerBallCatch : MonoBehaviour
         }
 
         OnBallSpawned?.Invoke(ball);
+        Debug.Log($"Spawned at {Time.time} | Frame: {Time.frameCount}");
     }
 
     private void ClampRuntime()

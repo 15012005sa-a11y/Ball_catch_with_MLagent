@@ -298,7 +298,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -61.3192, y: -33.7661}
+  m_AnchoredPosition: {x: 20.600037, y: -4.199951}
   m_SizeDelta: {x: 300, y: 200}
   m_Pivot: {x: 1, y: 1}
 --- !u!114 &34398362
@@ -1069,6 +1069,7 @@ GameObject:
   m_Component:
   - component: {fileID: 196848749}
   - component: {fileID: 196848750}
+  - component: {fileID: 196848751}
   m_Layer: 0
   m_Name: Simulator
   m_TagString: Untagged
@@ -1104,21 +1105,32 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   leftTarget: {fileID: 481408891}
-  leftHint: {fileID: 1974780733}
   rightTarget: {fileID: 2132344154}
-  rightHint: {fileID: 1609345982}
   torso: {fileID: 2099404004}
   spawner: {fileID: 500489876}
-  moveSpeed: 13
-  followHeight: 0.6
-  catchOffsetZ: 0.6
-  lateralOffset: 0.25
-  reacDelay: 0.08
-  minForward: 0.15
-  chestOffset: 0.05
-  headOffset: 0.7
-  maxReach: 1.2
-  ballTag: Ball
+  handSpeed: 6
+  reactionTime: 0.2
+  clumsyProbability: 0
+  movementNoise: 0.01
+  catchForward: 0.45
+  minBallWorldY: 0.6
+  minBallLocalZ: -0.1
+  leftRestLocal: {x: -0.25, y: 1.05, z: 0.35}
+  rightRestLocal: {x: 0.25, y: 1.05, z: 0.35}
+  drawDebugGizmos: 0
+--- !u!114 &196848751
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 196848747}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e737e3739187a3246ad02d4e94b46fb3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  simulator: {fileID: 196848750}
 --- !u!1 &200504516
 GameObject:
   m_ObjectHideFlags: 0
@@ -3904,7 +3916,7 @@ GameObject:
   - component: {fileID: 407930361}
   m_Layer: 0
   m_Name: RightArmIK
-  m_TagString: Ball
+  m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4923,7 +4935,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 481408891}
-  m_Layer: 0
+  - component: {fileID: 481408892}
+  m_Layer: 3
   m_Name: LeftArmIK_target
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4945,6 +4958,19 @@ Transform:
   m_Father: {fileID: 1972000887}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!135 &481408892
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 481408890}
+  m_Material: {fileID: 0}
+  m_IsTrigger: 1
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.1
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &484065957
 GameObject:
   m_ObjectHideFlags: 0
@@ -15649,7 +15675,6 @@ GameObject:
   - component: {fileID: 1557552964}
   - component: {fileID: 1557552963}
   - component: {fileID: 1557552962}
-  - component: {fileID: 1557552967}
   m_Layer: 0
   m_Name: 11_Hand_Right
   m_TagString: PlayerHand
@@ -15751,34 +15776,6 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 8
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1557552967
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1557552961}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 31126ced7fef50a43bff6b4938cbe0ac, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  leftTarget: {fileID: 0}
-  leftHint: {fileID: 0}
-  rightTarget: {fileID: 0}
-  rightHint: {fileID: 0}
-  torso: {fileID: 0}
-  spawner: {fileID: 500489876}
-  moveSpeed: 5
-  followHeight: 1.2
-  catchOffsetZ: 0.1
-  lateralOffset: 0.25
-  reacDelay: 0.15
-  minForward: 0.15
-  chestOffset: 0.1
-  headOffset: 0.55
-  maxReach: 0.75
-  ballTag: Ball
 --- !u!1 &1558489008
 GameObject:
   m_ObjectHideFlags: 0
@@ -20184,20 +20181,22 @@ MonoBehaviour:
   hasUpgradedFromAgentParameters: 1
   MaxStep: 480
   difficulty: {fileID: 1910140008}
-  perf: {fileID: 1910140007}
   spawner: {fileID: 500489876}
+  score: {fileID: 1598290630}
+  perf: {fileID: 1910140007}
+  visualizer: {fileID: 34398362}
   targetSR: 0.75
+  tolerance: 0.05
   maxReactionSec: 2
+  maxThroughputPerMin: 120
   dSpawnIntervalMax: 0.05
   dBallSpeedMax: 0.2
   dTargetRadiusMax: 0.02
   dSpawnRadiusMax: 0.05
   dSpawnBiasMax: 0.3
-  decisionsEveryNResults: 8
-  visualizer: {fileID: 34398362}
-  CurrentBallSpeed: 5
-  CurrentSpawnRate: 2
   windowsPerEpisode: 30
+  CurrentBallSpeed: 5
+  CurrentSpawnInterval: 0
 --- !u!114 &1910140005
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -20270,13 +20269,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   spawner: {fileID: 500489876}
+  minSpeed: 0.2
+  maxSpeed: 5
+  currentSpeed: 2
   spawnIntervalSecRange: {x: 0.5, y: 3}
-  ballSpeedRange: {x: 0.2, y: 8}
   targetRadiusRange: {x: 0.05, y: 0.2}
   spawnRadiusRange: {x: 0.2, y: 1.5}
   lerpRate: 0.15
-  BallSpeed: 5
-  SpawnInterval: 2
+  BallSpeed: 0.2
+  SpawnInterval: 0.5
 --- !u!114 &1910140009
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -20847,7 +20848,7 @@ GameObject:
   - component: {fileID: 1972000888}
   m_Layer: 0
   m_Name: LeftArmIK
-  m_TagString: Ball
+  m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -22467,7 +22468,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2132344154}
-  m_Layer: 0
+  - component: {fileID: 2132344155}
+  m_Layer: 3
   m_Name: RightArmIK_target
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -22489,6 +22491,19 @@ Transform:
   m_Father: {fileID: 407930360}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!135 &2132344155
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2132344153}
+  m_Material: {fileID: 0}
+  m_IsTrigger: 1
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.1
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1001 &6686194192695007866
 PrefabInstance:
   m_ObjectHideFlags: 0

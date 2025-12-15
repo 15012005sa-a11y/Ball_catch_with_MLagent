@@ -1,94 +1,129 @@
 using UnityEngine;
 
 /// <summary>
-/// DifficultyController: ������������ ��������� ��������� ��� Ball Catch
-/// � ������ ���������� ���������� ��������� (spawnInterval, ballSpeed, targetRadius, spawnRadius)
-/// � ��������� ��������� ������ �� ���������, ������� ������������ ��� ������� (BallSpawnerBallCatch)
-/// � ��� ������������� ��������� (0..1) ��� CoachAgent
-/// � �������� �� ��������� �������� ���� � ������� ���������� ���������
-/// � ������ ������������� (Awake) + DefaultExecutionOrder, ����� �������� ���� ����������� �� ������ ��������
+/// DifficultyController: единая точка управления сложностью Ball Catch.
+///
+/// Управляет параметрами:
+///  - Spawn Interval (интервал спавна)
+///  - Ball Speed (скорость мяча)
+///  - Target Radius (радиус цели)
+///  - Spawn Radius (радиус области появления)
+///
+/// Дополнено по ТЗ:
+///  - AdjustSpeed(float delta): меняет currentSpeed в диапазоне [-0.1..0.1],
+///    ограничивает между minSpeed и maxSpeed и применяет к спавнеру.
+///  - GetNormalizedSpeed(): возвращает скорость 0..1 для сенсоров нейросети.
 /// </summary>
 [DefaultExecutionOrder(-100)]
 public class DifficultyController : MonoBehaviour
 {
-    // ===== ��� �������� � ����� ������� =====
+    // ===== Links =====
     [Header("Game refs")]
-    [SerializeField] private BallSpawnerBallCatch spawner; // �������� ���� ��������� � Inspector
+    [SerializeField] private BallSpawnerBallCatch spawner; // назначь в Inspector
 
-    // ===== ��������� (������ �����) =====
+    // ===== Speed control (requested API) =====
+    [Header("Speed control")]
+    [SerializeField] private float minSpeed = 0.20f;
+    [SerializeField] private float maxSpeed = 5.00f;
+    [SerializeField] private float currentSpeed = 2.00f;
+
+    // ===== Other difficulty clamps =====
     [Header("Hard clamps (game units)")]
-    public Vector2 spawnIntervalSecRange = new(0.50f, 3.00f);
-    public Vector2 ballSpeedRange = new(0.20f, 5.00f);
-    public Vector2 targetRadiusRange = new(0.05f, 0.20f);   // ������������ ������ �� ���������� ���������
-    public Vector2 spawnRadiusRange = new(0.20f, 1.50f);   // ������������ ������ �� ���������� ���������
+    [SerializeField] private Vector2 spawnIntervalSecRange = new(0.50f, 3.00f);
+    [SerializeField] private Vector2 targetRadiusRange = new(0.05f, 0.20f);
+    [SerializeField] private Vector2 spawnRadiusRange = new(0.20f, 1.50f);
 
-    // ===== ��������� ����� ����-�������� =====
+    // ===== Smoothing =====
     [Header("Smoothing")]
     [Range(0f, 1f)] public float lerpRate = 0.30f;
-    public float BallSpeed = 5f;       
-    public float SpawnInterval = 2f;
 
-    // ===== ������� ���������� ��������� ��������� (������� �������) =====
+    // ===== Public readouts (used by CoachAgent/UI) =====
+    [Header("Readouts")]
+    public float BallSpeed = 2f;       // фактическая скорость (игровые единицы)
+    public float SpawnInterval = 2f;   // фактический интервал (сек)
+
+    // ===== Internal state =====
     private float _spawnInterval;
     private float _ballSpeed;
     private float _targetRadius;
     private float _spawnRadius;
 
-    // ��� ������ � ������ �� ������ ���������
+    /// <summary>Нормированная магнитуда изменения сложности (для штрафа в reward).</summary>
     public float LastRoundChangeMagnitude01 { get; private set; }
 
-    // ===== ������������� ��������� ��� CoachAgent =====
+    // ===== Normalized state for ML =====
     public struct State01
     {
         public float spawnInterval01, ballSpeed01, targetRadius01, spawnRadius01, reserve01;
-        public static State01 Zero => new State01 { spawnInterval01 = 0f, ballSpeed01 = 0f, targetRadius01 = 0f, spawnRadius01 = 0f, reserve01 = 0f };
+        public static State01 Zero => new State01
+        {
+            spawnInterval01 = 0f,
+            ballSpeed01 = 0f,
+            targetRadius01 = 0f,
+            spawnRadius01 = 0f,
+            reserve01 = 0f
+        };
     }
 
     private void Awake()
     {
-        // ������ �������������: ����� ������ � ����� ��������� � �������
-        ResetToDefault();
+        // Инициализация внутреннего состояния из Inspector
+        _spawnInterval = Mathf.Lerp(spawnIntervalSecRange.x, spawnIntervalSecRange.y, 0.60f);
+        _ballSpeed = Mathf.Clamp(currentSpeed, minSpeed, maxSpeed);
+        _targetRadius = Mathf.Lerp(targetRadiusRange.x, targetRadiusRange.y, 0.50f);
+        _spawnRadius = Mathf.Lerp(spawnRadiusRange.x, spawnRadiusRange.y, 0.50f);
+
+        SyncReadoutsFromInternal();
+        ApplyToGame();
     }
 
     private void OnValidate()
     {
-        // ������ ���������� �� ������������ �������� � ����������
+        // --- basic range fixes ---
+        if (maxSpeed < minSpeed) maxSpeed = minSpeed + 0.01f;
+        currentSpeed = Mathf.Clamp(currentSpeed, minSpeed, maxSpeed);
+
         if (spawnIntervalSecRange.y < spawnIntervalSecRange.x) spawnIntervalSecRange.y = spawnIntervalSecRange.x + 0.01f;
-        if (ballSpeedRange.y < ballSpeedRange.x) ballSpeedRange.y = ballSpeedRange.x + 0.01f;
         if (targetRadiusRange.y < targetRadiusRange.x) targetRadiusRange.y = targetRadiusRange.x + 0.001f;
         if (spawnRadiusRange.y < spawnRadiusRange.x) spawnRadiusRange.y = spawnRadiusRange.x + 0.001f;
 
-        // �������� ���������� ��������, ���� ������������� � PlayMode
+        // clamp internal if we are in play mode / hot reload
         _spawnInterval = Mathf.Clamp(_spawnInterval, spawnIntervalSecRange.x, spawnIntervalSecRange.y);
-        _ballSpeed = Mathf.Clamp(_ballSpeed, ballSpeedRange.x, ballSpeedRange.y);
+        _ballSpeed = Mathf.Clamp(_ballSpeed, minSpeed, maxSpeed);
         _targetRadius = Mathf.Clamp(_targetRadius, targetRadiusRange.x, targetRadiusRange.y);
         _spawnRadius = Mathf.Clamp(_spawnRadius, spawnRadiusRange.x, spawnRadiusRange.y);
 
+        SyncReadoutsFromInternal();
         ApplyToGame();
     }
 
     /// <summary>
-    /// ����� � ����������� ��������� �� ��������� � ���������� � ����.
+    /// Сбрасывает параметры сложности к дефолтным (внутренние mid-values).
     /// </summary>
     public void ResetToDefault()
     {
         _spawnInterval = Mathf.Lerp(spawnIntervalSecRange.x, spawnIntervalSecRange.y, 0.60f);
-        _ballSpeed = Mathf.Lerp(ballSpeedRange.x, ballSpeedRange.y, 0.40f);
+        _ballSpeed = Mathf.Lerp(minSpeed, maxSpeed, 0.40f);
         _targetRadius = Mathf.Lerp(targetRadiusRange.x, targetRadiusRange.y, 0.50f);
         _spawnRadius = Mathf.Lerp(spawnRadiusRange.x, spawnRadiusRange.y, 0.50f);
         LastRoundChangeMagnitude01 = 0f;
+
+        // синхронизируем Inspector-friendly переменную скорости
+        currentSpeed = _ballSpeed;
+
+        SyncReadoutsFromInternal();
         ApplyToGame();
     }
 
     /// <summary>
-    /// ���������� ������������� ��������� � [0..1] ��� ���������� ������.
+    /// Возвращает нормированные параметры сложности в диапазоне [0..1] для наблюдений агента.
     /// </summary>
     public State01 GetState01()
     {
         return new State01
         {
             spawnInterval01 = Mathf.InverseLerp(spawnIntervalSecRange.x, spawnIntervalSecRange.y, _spawnInterval),
-            ballSpeed01 = Mathf.InverseLerp(ballSpeedRange.x, ballSpeedRange.y, _ballSpeed),
+            ballSpeed01 = GetNormalizedSpeed(),
             targetRadius01 = Mathf.InverseLerp(targetRadiusRange.x, targetRadiusRange.y, _targetRadius),
             spawnRadius01 = Mathf.InverseLerp(spawnRadiusRange.x, spawnRadiusRange.y, _spawnRadius),
             reserve01 = 0f
@@ -96,7 +131,11 @@ public class DifficultyController : MonoBehaviour
     }
 
     /// <summary>
-    /// ��������� ���������� ��������� (������ �����, ��������� � ��������� �������).
+    /// Применяет дельты сложности (обычно от CoachAgent).
+    /// dSpawn  : + увеличивает интервал (легче), - уменьшает (сложнее)
+    /// dSpeed  : + увеличивает скорость (сложнее), - уменьшает (легче)
+    /// dRadius : + увеличивает радиус цели (легче)
+    /// dSpawnRad: + расширяет область спавна (обычно сложнее)
     /// </summary>
     public void ApplyDeltas(float dSpawn, float dSpeed, float dRadius, float dSpawnRad)
     {
@@ -104,33 +143,27 @@ public class DifficultyController : MonoBehaviour
         float prevV = _ballSpeed;
         float prevR = _targetRadius;
         float prevSR = _spawnRadius;
-        
-        // === ИСПРАВЛЕНИЕ ЗДЕСЬ ===
-        // Используем dSpeed (он есть в аргументах) и dSpawn (вместо несуществующего dInterval)
-        BallSpeed = Mathf.Clamp(BallSpeed + dSpeed, 1f, 15f); 
-        SpawnInterval = Mathf.Clamp(SpawnInterval + dSpawn, 0.5f, 5f); // Было dInterval -> стало dSpawn
-        // =========================
 
-        // 1) Применяем изменения к внутренним переменным
-        _spawnInterval = Mathf.Clamp(_spawnInterval + dSpawn, spawnIntervalSecRange.x, spawnIntervalSecRange.y);
-        _ballSpeed = Mathf.Clamp(_ballSpeed + dSpeed, ballSpeedRange.x, ballSpeedRange.y);
-        _targetRadius = Mathf.Clamp(_targetRadius + dRadius, targetRadiusRange.x, targetRadiusRange.y);
-        _spawnRadius = Mathf.Clamp(_spawnRadius + dSpawnRad, spawnRadiusRange.x, spawnRadiusRange.y);
+        // 1) Clamp
+        float nextSpawn = Mathf.Clamp(_spawnInterval + dSpawn, spawnIntervalSecRange.x, spawnIntervalSecRange.y);
+        float nextSpeed = Mathf.Clamp(_ballSpeed + dSpeed, minSpeed, maxSpeed);
+        float nextTR = Mathf.Clamp(_targetRadius + dRadius, targetRadiusRange.x, targetRadiusRange.y);
+        float nextSpawnR = Mathf.Clamp(_spawnRadius + dSpawnRad, spawnRadiusRange.x, spawnRadiusRange.y);
 
-        // 2) Сглаживание (Lerp), чтобы изменения не были слишком резкими
-        _spawnInterval = Mathf.Lerp(prevS, _spawnInterval, lerpRate);
-        _ballSpeed = Mathf.Lerp(prevV, _ballSpeed, lerpRate);
-        _targetRadius = Mathf.Lerp(prevR, _targetRadius, lerpRate);
-        _spawnRadius = Mathf.Lerp(prevSR, _spawnRadius, lerpRate);
+        // 2) Smooth
+        _spawnInterval = Mathf.Lerp(prevS, nextSpawn, lerpRate);
+        _ballSpeed = Mathf.Lerp(prevV, nextSpeed, lerpRate);
+        _targetRadius = Mathf.Lerp(prevR, nextTR, lerpRate);
+        _spawnRadius = Mathf.Lerp(prevSR, nextSpawnR, lerpRate);
 
-        // Синхронизируем публичные переменные с внутренними (чтобы они не расходились)
-        BallSpeed = _ballSpeed;
-        SpawnInterval = _spawnInterval;
+        // 3) Sync readouts + inspector speed
+        currentSpeed = _ballSpeed;
+        SyncReadoutsFromInternal();
 
-        // 3) Расчет магнитуды изменений (для агента)
+        // 4) Magnitude for reward penalty
         var st = GetState01();
         float ps = Mathf.InverseLerp(spawnIntervalSecRange.x, spawnIntervalSecRange.y, prevS);
-        float pv = Mathf.InverseLerp(ballSpeedRange.x, ballSpeedRange.y, prevV);
+        float pv = Mathf.InverseLerp(minSpeed, maxSpeed, prevV);
         float pr = Mathf.InverseLerp(targetRadiusRange.x, targetRadiusRange.y, prevR);
         float psr = Mathf.InverseLerp(spawnRadiusRange.x, spawnRadiusRange.y, prevSR);
         LastRoundChangeMagnitude01 = Mathf.Sqrt(
@@ -140,26 +173,75 @@ public class DifficultyController : MonoBehaviour
             (st.spawnRadius01 - psr) * (st.spawnRadius01 - psr)
         );
 
-        // 4) Применение к игре
         ApplyToGame();
 
-        Debug.Log($"[DIFF] speed={_ballSpeed:F2}, spawnInt={_spawnInterval:F2}, " +
-          $"targetR={_targetRadius:F2}, spawnR={_spawnRadius:F2}");
+#if UNITY_EDITOR
+        Debug.Log($"[DIFF] speed={_ballSpeed:F2}, spawnInt={_spawnInterval:F2}, targetR={_targetRadius:F2}, spawnR={_spawnRadius:F2}");
+#endif
+    }
+
+    // ==========================
+    // ===== Requested API ======
+    // ==========================
+
+    /// <summary>
+    /// Меняет текущую скорость на дельту [-0.1..0.1] (игровые единицы),
+    /// ограничивает между minSpeed и maxSpeed и применяет к спавнеру.
+    /// </summary>
+    public void AdjustSpeed(float delta)
+    {
+        // Гарантируем диапазон входа (по ТЗ)
+        delta = Mathf.Clamp(delta, -0.1f, 0.1f);
+
+        currentSpeed += delta;
+        currentSpeed = Mathf.Clamp(currentSpeed, minSpeed, maxSpeed);
+
+        // Синхронизируем внутреннее состояние
+        _ballSpeed = currentSpeed;
+        SyncReadoutsFromInternal();
+
+        // Применяем к игре
+        ApplyToGame();
     }
 
     /// <summary>
-    /// ������� �������������� ��������� � �������. ������� �� ��� 0.
+    /// Возвращает скорость 0..1 для наблюдений нейросети.
+    /// </summary>
+    public float GetNormalizedSpeed()
+    {
+        return Mathf.InverseLerp(minSpeed, maxSpeed, currentSpeed);
+    }
+
+    // ==========================
+    // ===== Helpers ============
+    // ==========================
+
+    private void SyncReadoutsFromInternal()
+    {
+        BallSpeed = _ballSpeed;
+        SpawnInterval = _spawnInterval;
+    }
+
+    /// <summary>
+    /// Применяет текущие параметры к объектам игры.
+    /// Важно: скорость применяется сразу через spawner.ballSpeed.
     /// </summary>
     private void ApplyToGame()
     {
-        if (!spawner) return;
+        if (spawner == null)
+            spawner = FindObjectOfType<BallSpawnerBallCatch>(true);
 
-        spawner.spawnInterval = Mathf.Max(0.05f, _spawnInterval);
+        if (spawner == null) return;
+
+        // скорость и интервал
         spawner.ballSpeed = Mathf.Max(0.05f, _ballSpeed);
+        spawner.spawnInterval = Mathf.Max(0.05f, _spawnInterval);
 
-        // --- �����: �������� Spawn Radius (Spread) ---
-        // ����������� ��������, ����� �������� 0..1 � �������
+        // радиус спавна (spawner ожидает нормированное значение 0..1)
         float normRadius = Mathf.InverseLerp(spawnRadiusRange.x, spawnRadiusRange.y, _spawnRadius);
         spawner.SetSpawnRadius(normRadius);
+
+        // радиус цели (_targetRadius) — если у тебя есть отдельный объект цели,
+        // добавь здесь применение (например, через ссылку на компонент коллайдера/скейл).
     }
 }

@@ -136,7 +136,7 @@ MonoBehaviour:
   popEffectLifetime: 1.2
   handLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 8
   missZoneTag: MissZone
 --- !u!114 &-6536245092722810032
 MonoBehaviour:

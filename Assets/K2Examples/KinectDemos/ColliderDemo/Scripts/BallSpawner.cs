@@ -1,61 +1,60 @@
 using UnityEngine;
-using System.Collections;
+using System.Collections.Generic;
 
-public class BallSpawner : MonoBehaviour 
+// Этот скрипт вешается на объект, который создает шары
+public class BallSpawner : MonoBehaviour
 {
-	[Tooltip("Index of the player, tracked by this component. 0 means the 1st player, 1 - the 2nd one, 2 - the 3rd one, etc.")]
-	public int playerIndex = 0;
+    [Header("Game Settings")]
+    [SerializeField] private float minSpeed = 2.0f;
+    [SerializeField] private float maxSpeed = 10.0f;
+    
+    // Текущая сложность (от 0 до 1), которой управляет Агент
+    private float currentDifficultyFactor = 0.5f;
 
-	[Tooltip("Prefab used to instantiate balls in the scene.")]
-    public Transform ballPrefab;
+    [Header("Statistics for Agent")]
+    // Окно истории для сглаживания данных (последние 20 бросков)
+    private Queue<bool> hitHistory = new Queue<bool>(); 
+    private int historySize = 20;
 
-	[Tooltip("Prefab used to instantiate cubes in the scene.")]
-	public Transform cubePrefab;
-	
-	[Tooltip("How many objects do we want to spawn.")]
-	public int numberOfObjects = 20;
-
-    private float nextSpawnTime = 0.0f;
-    private float spawnRate = 1.5f;
-	private int ballsCount = 0;
- 	
-
-	void Update () 
-	{
-        if (nextSpawnTime < Time.time)
-        {
-            SpawnBalls();
-            nextSpawnTime = Time.time + spawnRate;
-
-			//spawnRate = Random.Range(0f, 1f);
-			//numberOfBalls = Mathf.RoundToInt(Random.Range(1f, 10f));
-        }
-	}
-
-    void SpawnBalls()
+    // Свойство для получения текущей скорости шаров
+    public float CurrentBallSpeed 
     {
-		KinectManager manager = KinectManager.Instance;
-
-		if(ballPrefab && cubePrefab && ballsCount < numberOfObjects &&
-			manager && manager.IsInitialized() && manager.IsUserDetected(playerIndex))
-		{
-			long userId = manager.GetUserIdByIndex(playerIndex);
-			Vector3 posUser = manager.GetUserPosition(userId);
-
-			float xOfs = Random.Range(-1.5f, 1.5f);
-			float zOfs = Random.Range(-2.0f, 1.0f);
-			float yOfs = Random.Range(1.0f, 4.0f);
-			Vector3 spawnPos = new Vector3(posUser.x + xOfs, posUser.y + yOfs, posUser.z + zOfs);
-
-			int ballOrCube = Mathf.RoundToInt(Random.Range(0f, 1f));
-
-			Transform ballTransform = Instantiate(ballOrCube > 0 ? ballPrefab : cubePrefab, spawnPos, Quaternion.identity) as Transform;
-			ballTransform.GetComponent<Renderer>().material.color = new Color(Random.Range(0.5f, 1f), Random.Range(0.5f, 1f), Random.Range(0.5f, 1f), 1f);
-			ballTransform.GetComponent<Rigidbody> ().drag = Random.Range(1f, 100f);
-			ballTransform.parent = transform;
-
-			ballsCount++;
-		}
+        get { return Mathf.Lerp(minSpeed, maxSpeed, currentDifficultyFactor); }
     }
 
+    // Метод, который вызывает Агент для изменения сложности
+    // actionValue: -1 (уменьшить), 0 (ничего), +1 (увеличить) или непрерывное значение
+    public void UpdateDifficulty(float actionValue)
+    {
+        // Плавно меняем сложность. 
+        // Если actionValue отрицательное -> сложность падает.
+        // Time.deltaTime обеспечивает плавность.
+        currentDifficultyFactor += actionValue * Time.deltaTime * 0.5f;
+        currentDifficultyFactor = Mathf.Clamp01(currentDifficultyFactor);
+    }
+
+    // Вызывать этот метод, когда пациент поймал (true) или уронил (false) шар
+    public void RegisterResult(bool isCatch)
+    {
+        if (hitHistory.Count >= historySize) hitHistory.Dequeue();
+        hitHistory.Enqueue(isCatch);
+    }
+
+    // Вычисляем Success Rate (0.0 - 1.0)
+    public float GetSuccessRate()
+    {
+        if (hitHistory.Count == 0) return 1.0f; // По умолчанию считаем, что все ок
+
+        int catches = 0;
+        foreach (bool hit in hitHistory)
+        {
+            if (hit) catches++;
+        }
+        return (float)catches / hitHistory.Count;
+    }
+    
+    public float GetCurrentDifficulty()
+    {
+        return currentDifficultyFactor;
+    }
 }
