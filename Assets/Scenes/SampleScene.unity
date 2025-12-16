@@ -1107,7 +1107,6 @@ MonoBehaviour:
   leftTarget: {fileID: 481408891}
   rightTarget: {fileID: 2132344154}
   torso: {fileID: 2099404004}
-  spawner: {fileID: 500489876}
   handSpeed: 6
   reactionTime: 0.2
   clumsyProbability: 0
@@ -1117,7 +1116,10 @@ MonoBehaviour:
   minBallLocalZ: -0.1
   leftRestLocal: {x: -0.25, y: 1.05, z: 0.35}
   rightRestLocal: {x: 0.25, y: 1.05, z: 0.35}
-  drawDebugGizmos: 0
+  swapHandsForBackView: 0
+  scanInterval: 0.08
+  snapTargetsToRestOnStart: 1
+  drawGizmos: 0
 --- !u!114 &196848751
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4952,7 +4954,7 @@ Transform:
   m_GameObject: {fileID: 481408890}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.1, y: 0.1, z: 0.1}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1972000887}
@@ -16832,7 +16834,7 @@ Transform:
   m_GameObject: {fileID: 1609345981}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.1, y: 0.1, z: 0.1}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 407930360}
@@ -21054,7 +21056,7 @@ Transform:
   m_GameObject: {fileID: 1974780732}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.1, y: 0.1, z: 0.1}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1972000887}
@@ -22485,7 +22487,7 @@ Transform:
   m_GameObject: {fileID: 2132344153}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.1, y: 0.1, z: 0.1}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 407930360}
