@@ -182,6 +182,9 @@ public class CoachAgent : Agent
 
         if (visualizer != null && difficulty != null && spawner != null)
         {
+            // Получаем текущий процент успеха (0.0 - 1.0)
+            float currentSR = perf != null ? perf.SuccessRate01 : 0f;
+            
             visualizer.UpdateDashboard(
                 difficulty.BallSpeed,
                 difficulty.SpawnInterval,

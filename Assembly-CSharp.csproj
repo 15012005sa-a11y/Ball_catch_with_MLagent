@@ -191,6 +191,7 @@
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TextConsoleSimulator.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\FaceTrackingDemo\Scripts\FacePointOverlayer.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\ObjectSpin.cs" />
+    <Compile Include="Assets\Scenes\CoachAgent\TrainingScenario.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\MocapAnimatorDemo\Scripts\MocapRecorder.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\FaceTrackingDemo\Scripts\ModelHatController.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_TextInfoDebugTool.cs" />
@@ -320,7 +321,6 @@
     <Compile Include="Assets\K2Examples\KinectScripts\Samples\FollowUserRotation.cs" />
     <Compile Include="Assets\Scenes\Scripts\SpawnPointPlacer.cs" />
     <Compile Include="Assets\K2Examples\KinectDemos\PhysicsDemo\Scripts\BarrelTrigger.cs" />
-    <Compile Include="Assets\Scenes\CoachAgent\TrainingScenario.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />

@@ -9,36 +9,36 @@ public class CoachVisualizer : MonoBehaviour
     [SerializeField] private TextMeshProUGUI spawnText;
     [SerializeField] private TextMeshProUGUI biasText;  
     [SerializeField] private TextMeshProUGUI rewardText;
+    // 1. Добавляем новое поле
+    [SerializeField] private TextMeshProUGUI successRateText; 
+
+    [Header("Visual Feedback")]
     [SerializeField] private Image panelBackground;
-
-    [Header("Colors")]
     [SerializeField] private Color normalColor = new Color(0, 0, 0, 0.5f);
-    [SerializeField] private Color harderColor = new Color(1, 0, 0, 0.3f); 
-    [SerializeField] private Color easierColor = new Color(0, 1, 0, 0.3f); 
-
-    public void UpdateDashboard(float speed, float interval, float bias, float reward, float speedDelta, float intervalDelta)
+    
+    // 2. Обновляем метод: добавляем аргумент currentSuccessRate
+    public void UpdateDashboard(float speed, float interval, float bias, float reward, float currentSuccessRate, float speedDelta, float intervalDelta)
     {
-        // --- ЗАЩИТА ОТ ОШИБОК ---
-        // Если объект выключен или уничтожен, просто выходим и не делаем ошибок
         if (this == null || !gameObject.activeInHierarchy) return;
 
-        // Проверяем каждое поле перед записью
-        if (speedText != null) speedText.text = $"Скорость: {speed:F1}";
-        if (spawnText != null) spawnText.text = $"Спавн: {interval:F2}s";
-        if (biasText != null) biasText.text = $"Смещение: {bias:F2}";
-        if (rewardText != null) rewardText.text = $"Награда: {reward:F3}";
+        if (speedText != null) speedText.text = $"Speed: {speed:F1}";
+        if (spawnText != null) spawnText.text = $"Interval: {interval:F2}s";
+        if (biasText != null) biasText.text = $"Bias: {bias:F2}";
+        if (rewardText != null) rewardText.text = $"Reward: {reward:F3}";
 
-        // Логика цвета
-        if (panelBackground != null)
+        // 3. Отображаем Success Rate
+        if (successRateText != null)
         {
-            bool gettingHarder = speedDelta > 0.05f || intervalDelta < -0.05f;
-            bool gettingEasier = speedDelta < -0.05f || intervalDelta > 0.05f;
+            float percent = currentSuccessRate * 100f;
+            successRateText.text = $"Success: {percent:F0}%";
 
-            Color targetColor = normalColor;
-            if (gettingHarder) targetColor = harderColor;
-            else if (gettingEasier) targetColor = easierColor;
-
-            panelBackground.color = Color.Lerp(panelBackground.color, targetColor, Time.deltaTime * 5f);
+            // Визуальная подсказка (Поток: 70% - 80%)
+            if (currentSuccessRate >= 0.70f && currentSuccessRate <= 0.80f)
+                successRateText.color = Color.green; // Идеальная зона
+            else if (currentSuccessRate < 0.50f)
+                successRateText.color = Color.red;   // Слишком сложно
+            else
+                successRateText.color = Color.white; // Обычное состояние
         }
     }
 }
