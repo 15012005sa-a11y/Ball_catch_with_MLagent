@@ -1112,8 +1112,8 @@ MonoBehaviour:
   spawner: {fileID: 0}
   mirrorLocalX: 0
   swapHands: 0
-  handSpeed: 6
-  reactionTime: 0.2
+  handSpeed: 15
+  reactionTime: 0.05
   clumsyProbability: 0
   movementNoise: 0.01
   scaleErrorsWithDifficulty: 1
