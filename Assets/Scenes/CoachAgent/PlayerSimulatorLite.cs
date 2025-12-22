@@ -113,6 +113,25 @@ public class PlayerSimulatorLite : MonoBehaviour
     [SerializeField] private bool drawDebugGizmos = false;
     [SerializeField] private bool logBallSide = false;
 
+    [Header("Activity (for CoachAgent observations)")]
+    [SerializeField] private Vector2 handSpeedNormRange = new Vector2(2f, 18f);
+    [SerializeField] private Vector2 reactionNormRange = new Vector2(0.05f, 1.5f);
+
+    public float GetEffectiveHandSpeedPublic() => GetEffectiveHandSpeed();
+    public float GetEffectiveReactionPublic() => GetEffectiveReactionTime();
+
+    public float GetActivity01()
+    {
+        float hs = GetEffectiveHandSpeed();
+        float rt = GetEffectiveReactionTime();
+
+        float hs01 = Mathf.Clamp01(Mathf.InverseLerp(handSpeedNormRange.x, handSpeedNormRange.y, hs));
+        float rt01 = Mathf.Clamp01(Mathf.InverseLerp(reactionNormRange.x, reactionNormRange.y, rt));
+
+        // ROM тут не измеряем напрямую — поэтому строим активность из скорости + реакции
+        return Mathf.Clamp01(0.65f * hs01 + 0.35f * (1f - rt01));
+    }
+
     // ===== Runtime =====
     private float _fatigue01;
 

@@ -54,6 +54,9 @@ public class BallSpawnerBallCatch : MonoBehaviour
     [Header("AI Control Params")]
     [Range(0f, 1f)] public float currentSpawnSpread = 1.0f;
 
+    [Header("External difficulty override")]
+    public bool externalDifficultyOverride = false;
+
     // Список отсортированных точек
     private List<Transform> _sortedSpawnPoints;
 
@@ -79,6 +82,9 @@ public class BallSpawnerBallCatch : MonoBehaviour
     private void OnValidate() { ballSpeed = Mathf.Max(0.05f, ballSpeed); }
 
     private float baseBallSpeed = 1f;
+
+    private float _lastSpawnTime = -999f;
+
 
     // ---------- Unity ----------
     private void Awake()
@@ -143,7 +149,10 @@ public class BallSpawnerBallCatch : MonoBehaviour
 
         spawnInterval = Mathf.Clamp(sSpawn, 0.05f, 10f);
         baseBallSpeed = Mathf.Max(0.05f, sSpeed);
-        ballSpeed = baseBallSpeed;
+        // ВАЖНО: если сложностью управляет Coach/DifficultyController — НЕ перетираем ballSpeed
+        if (!externalDifficultyOverride)
+            ballSpeed = baseBallSpeed;
+
         speedIncreaseFactor = Mathf.Max(0.1f, sInc);
         speedDecreaseFactor = Mathf.Max(0.1f, sDec);
         redChance = Mathf.Clamp01(sRed);
@@ -158,6 +167,7 @@ public class BallSpawnerBallCatch : MonoBehaviour
 
         Debug.Log($"[Spawner] Settings applied: spawn={spawnInterval:F2}s, speed(base)={baseBallSpeed:F2}, " +
                   $"inc×{speedIncreaseFactor:F2}, dec×{speedDecreaseFactor:F2}, redChance={redChance:0.##}");
+        Debug.Log($"[Spawner] ApplySettings CALLED (isSpawning={isSpawning}) baseBallSpeed={baseBallSpeed:F2} ballSpeed={ballSpeed:F2}");
     }
 
     private void TryUpdateActiveBallsSpeed(float newBaseSpeed)
@@ -206,19 +216,25 @@ public class BallSpawnerBallCatch : MonoBehaviour
         InvokeRepeating(nameof(SpawnBall), 1f, spawnInterval);
     }
 
-        public void UpdateIntervalSafely(float newInterval)
+    public void UpdateIntervalSafely(float newInterval)
     {
-        this.spawnInterval = newInterval;
-        
-        if (IsSpawning) // IsSpawning - твой флаг или проверка IsInvoking()
-        {
-            CancelInvoke(nameof(SpawnBall));
-            
-            // КРИТИЧЕСКИЙ МОМЕНТ:
-            // Первый аргумент (время до первого старта) должен быть равен newInterval.
-            // Если поставить 0f, шар вылетит МГНОВЕННО, создавая burst.
-            InvokeRepeating(nameof(SpawnBall), newInterval, newInterval);
-        }
+        newInterval = Mathf.Clamp(newInterval, 0.05f, 10f);
+
+        // если почти не изменилось — не трогаем таймер (важно против спама)
+        if (Mathf.Abs(newInterval - spawnInterval) < 0.02f)
+            return;
+
+        spawnInterval = newInterval;
+
+        if (!isSpawning) return;
+
+        CancelInvoke(nameof(SpawnBall));
+
+        // сохраняем фазу: не спавним "мгновенно", а ждём остаток до следующего шара
+        float elapsed = Time.time - _lastSpawnTime;
+        float delay = Mathf.Clamp(spawnInterval - elapsed, 0.01f, spawnInterval);
+
+        InvokeRepeating(nameof(SpawnBall), delay, spawnInterval);
     }
 
     public void StopSpawning()
@@ -230,6 +246,7 @@ public class BallSpawnerBallCatch : MonoBehaviour
 
     public void SpawnBall()
     {
+        _lastSpawnTime = Time.time;
         if (ballPrefab == null || spawnPoints == null || spawnPoints.Length == 0 || playerTransform == null)
             return;
 

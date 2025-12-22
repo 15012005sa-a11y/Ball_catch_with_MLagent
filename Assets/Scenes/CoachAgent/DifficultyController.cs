@@ -233,15 +233,24 @@ public class DifficultyController : MonoBehaviour
 
         if (spawner == null) return;
 
-        // скорость и интервал
-        spawner.ballSpeed = Mathf.Max(0.05f, _ballSpeed);
-        spawner.spawnInterval = Mathf.Max(0.05f, _spawnInterval);
+        spawner.externalDifficultyOverride = true;
 
-        // радиус спавна (spawner ожидает нормированное значение 0..1)
+        // 0) держим клампы скорости в одном месте (иначе спавнер отрежет)
+        spawner.ballSpeedClamp = new Vector2(minSpeed, maxSpeed);
+
+        // 1) скорость
+        spawner.ballSpeed = Mathf.Max(0.05f, _ballSpeed);
+
+        // 2) интервал: ВАЖНО — нужно рескейджулить InvokeRepeating
+        float newInterval = Mathf.Max(0.05f, _spawnInterval);
+        spawner.UpdateIntervalSafely(newInterval);
+
+        // 3) радиус спавна (spawner ожидает 0..1)
         float normRadius = Mathf.InverseLerp(spawnRadiusRange.x, spawnRadiusRange.y, _spawnRadius);
         spawner.SetSpawnRadius(normRadius);
 
-        // радиус цели (_targetRadius) — если у тебя есть отдельный объект цели,
-        // добавь здесь применение (например, через ссылку на компонент коллайдера/скейл).
+        // 4) если хочешь полностью убрать локальную авто-адаптацию в ML-режиме:
+        // spawner.selfAdaptive = false;
     }
+
 }

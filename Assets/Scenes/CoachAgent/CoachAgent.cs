@@ -46,6 +46,117 @@ public class CoachAgent : Agent
     [Tooltip("Сколько мини-раундов (окон) в одном эпизоде обучения")]
     public int windowsPerEpisode = 30;
 
+    [Header("SR band (goal)")]
+    public float targetLow = 0.75f;
+    public float targetHigh = 0.80f;
+    public float hysteresis = 0.005f;      // анти-пиление
+    [Range(0.05f, 0.5f)] public float emaAlpha = 0.25f;
+
+    [Header("Activity")]
+    public PlayerSimulatorLite simLite;     // OPTIONAL: только для Simulator
+    [Range(0f, 1f)] public float rlWeight = 0.35f;   // 0 = чистый safety, 1 = чистый RL
+    public bool debugCoach = true;
+
+    [Header("Decision driver (runtime)")]
+    [SerializeField] private bool driveDecisionsByTimer = true;
+    [SerializeField, Range(0.1f, 2f)] private float decisionPeriodSec = 0.5f; // 2 раза/сек
+    private float _nextDecisionTime = 0f;
+
+
+    // EMA состояния
+    private float _srEma, _rtEma, _romEma, _actEma;
+    private bool _pendingApply = false;
+    private float _lastDecisionTime;
+
+    // === UI refresh (чтобы значения всегда были видны) ===
+    [SerializeField, Range(0.05f, 1f)] private float uiRefreshPeriod = 0.25f;
+    private float _uiNextTime = 0f;
+    private float _lastA0 = 0f; // интервал action (-1..1)
+    private float _lastA1 = 0f; // speed action (-1..1)
+
+    private void Awake()
+    {
+        TryAutoWire();
+    }
+
+    private void Start()
+    {
+        // Показать хотя бы стартовые значения
+        PushUI(_lastA1, _lastA0);
+    }
+
+    private void Update()
+    {
+        if (Time.unscaledTime < _uiNextTime) return;
+        _uiNextTime = Time.unscaledTime + uiRefreshPeriod;
+
+        PushUI(_lastA1, _lastA0);
+    }
+
+    private void TryAutoWire()
+    {
+        if (difficulty == null) difficulty = FindObjectOfType<DifficultyController>(true);
+        if (spawner == null)    spawner    = FindObjectOfType<BallSpawnerBallCatch>(true);
+        if (perf == null)       perf       = FindObjectOfType<PerformanceWindow>(true);
+
+        if (visualizer == null)
+        {
+            var all = FindObjectsOfType<CoachVisualizer>(true);
+            for (int i = 0; i < all.Length; i++)
+            {
+                if (all[i] != null && all[i].gameObject.activeInHierarchy)
+                {
+                    visualizer = all[i];
+                    break;
+                }
+            }
+            if (visualizer == null && all.Length > 0) visualizer = all[0];
+        }
+    }
+
+    private void FixedUpdate()
+    {
+        if (!driveDecisionsByTimer) return;
+        if (Time.time < _nextDecisionTime) return;
+        _nextDecisionTime = Time.time + decisionPeriodSec;
+
+        _pendingApply = true;     // разрешаем применить ровно 1 раз
+        RequestDecision();        // просим действие у модели/эвристики
+
+        if (debugCoach) Debug.Log("[COACH] RequestDecision (timer)");
+    }
+
+    private void PushUI(float speedDelta01, float intervalDelta01)
+    {
+        // если ссылки потерялись/не назначены — попробуем подцепить снова
+        if (visualizer == null || difficulty == null || spawner == null)
+            TryAutoWire();
+
+        if (visualizer == null || difficulty == null || spawner == null)
+        {
+            Debug.Log($"[UI] MISSING refs: vis={(visualizer!=null)} diff={(difficulty!=null)} sp={(spawner!=null)} perf={(perf!=null)}");
+            return;
+        }
+
+        float sr01 = (perf != null) ? perf.SuccessRate01 : _srEma;
+
+        visualizer.UpdateDashboard(
+            difficulty.BallSpeed,
+            difficulty.SpawnInterval,
+            spawner.aiSpawnBias,
+            GetCumulativeReward(),
+            sr01,
+            speedDelta01,
+            intervalDelta01
+        );
+
+        // этот лог теперь реально будет виден
+        Debug.Log($"[UI] OK speed={difficulty.BallSpeed:F2} int={difficulty.SpawnInterval:F2} sr={sr01:F2}");
+    }
+
+
+
+
     // Для отладки/внешних скриптов (если нужно)
     public float CurrentBallSpeed = 5f;
     public float CurrentSpawnRate = 2f;
@@ -80,6 +191,13 @@ public class CoachAgent : Agent
         float sr = perf ? perf.SuccessRate01 : 0f; // 0..1
         float rt = perf ? Mathf.Clamp01(perf.MeanReactionSec / Mathf.Max(0.1f, maxReactionSec)) : 0f; // 0..1
         float rom = perf ? Mathf.Clamp01(perf.MeanRom01) : 0f; // 0..1
+        float activity01 = 0f;
+        if (simLite != null) activity01 = simLite.GetActivity01();
+        else
+        {
+            // прокси-активность, если нет handSpeed
+        activity01 = Mathf.Clamp01(0.45f * rom + 0.35f * (1f - rt) + 0.20f * sr);
+        }
 
         var st = difficulty ? difficulty.GetState01() : DifficultyController.State01.Zero;
 
@@ -91,36 +209,85 @@ public class CoachAgent : Agent
         sensor.AddObservation(st.ballSpeed01);      // 5
         sensor.AddObservation(st.targetRadius01);   // 6
         sensor.AddObservation(st.spawnRadius01);    // 7
-        sensor.AddObservation(st.reserve01);        // 8 (зарезервировано)
+        sensor.AddObservation(activity01); // 8 (вместо reserve01)
     }
 
     public override void OnActionReceived(ActionBuffers actions)
     {
+        if (debugCoach && (Time.frameCount & 63) == 0)
+        Debug.Log($"[COACH] OnActionReceived called pending={_pendingApply}");
+
+        // Применяем только ОДИН раз на один "mini-round" (когда OnResult запросил решение)
+        if (!_pendingApply) return;
+        _pendingApply = false;
+
         var a = actions.ContinuousActions;
+        if (a.Length < 5) return;
 
         // Нормированные действия (-1..1)
-        float a0 = Mathf.Clamp(a[0], -1f, 1f); // dSpawn (Интервал)
-        float a1 = Mathf.Clamp(a[1], -1f, 1f); // dSpeed (Скорость)
+        float a0 = Mathf.Clamp(a[0], -1f, 1f); // dSpawn (интервал)
+        float a1 = Mathf.Clamp(a[1], -1f, 1f); // dSpeed (скорость)
         float a2 = Mathf.Clamp(a[2], -1f, 1f); // dTargetR
         float a3 = Mathf.Clamp(a[3], -1f, 1f); // dSpawnR
         float a4 = Mathf.Clamp(a[4], -1f, 1f); // dSpawnBias
 
-        // 1) Применяем изменения сложности (масштабируем нормированные действия)
+        // запоминаем последнее действие (для UI)
+        _lastA0 = a0;   // interval action (-1..1)
+        _lastA1 = a1;   // speed action (-1..1)
+
+        // --- RL-дельты ---
+        float dSpawnRL = a0 * dSpawnIntervalMax;
+        float dSpeedRL = a1 * dBallSpeedMax;
+        float dTR_RL   = a2 * dTargetRadiusMax;
+        float dSR_RL   = a3 * dSpawnRadiusMax;
+
+        // --- Safety-дельты (держим SR в коридоре) ---
+        float lo = targetLow, hi = targetHigh;
+        float srAim = Mathf.Lerp(hi, lo, _actEma);   // активный => целимся ближе к lo
+        float sr = _srEma;
+
+        float err = 0f;
+        if (sr > hi + hysteresis) err = sr - hi;
+        else if (sr < lo - hysteresis) err = sr - lo;
+        else err = (sr - srAim) * 0.25f; // мягкая подстройка внутри коридора
+
+        float bandHalf = 0.5f * (hi - lo); // 0.025 при 0.75..0.80
+        float eN = Mathf.Clamp(err / Mathf.Max(1e-5f, bandHalf), -1f, 1f);
+
+        // eN>0 => слишком легко => усложнить (speed↑, interval↓, targetR↓)
+        float dSpeedSafe =  +eN * (0.60f * dBallSpeedMax);
+        float dSpawnSafe =  -eN * (0.60f * dSpawnIntervalMax);
+        float dTR_Safe   =  -eN * (0.40f * dTargetRadiusMax);
+        float dSR_Safe   =  +eN * (0.40f * dSpawnRadiusMax);
+
+        // --- Смешивание Safety и RL ---
+        float dSpawn = Mathf.Lerp(dSpawnSafe, dSpawnRL, rlWeight);
+        float dSpeed = Mathf.Lerp(dSpeedSafe, dSpeedRL, rlWeight);
+        float dTR    = Mathf.Lerp(dTR_Safe,   dTR_RL,   rlWeight);
+        float dSR    = Mathf.Lerp(dSR_Safe,   dSR_RL,   rlWeight);
+
+        // 1) Применяем ИМЕННО ГИБРИДНЫЕ дельты (ОДИН раз)
         if (difficulty != null)
         {
-            difficulty.ApplyDeltas(
-                a0 * dSpawnIntervalMax,
-                a1 * dBallSpeedMax,
-                a2 * dTargetRadiusMax,
-                a3 * dSpawnRadiusMax
-            );
+            float preSpeed = difficulty.BallSpeed;
+            float preInt   = difficulty.SpawnInterval;
 
-            // (опционально) обновим для внешних потребителей
+            difficulty.ApplyDeltas(dSpawn, dSpeed, dTR, dSR);
+
             CurrentBallSpeed = difficulty.BallSpeed;
             CurrentSpawnRate = difficulty.SpawnInterval;
+
+            if (debugCoach)
+            {
+                Debug.Log(
+                    $"[COACH] apply: SRema={_srEma:F3} aim={srAim:F3} eN={eN:F2} rlW={rlWeight:F2} | " +
+                    $"Δspeed={dSpeed:F3} Δint={dSpawn:F3} | " +
+                    $"speed {preSpeed:F2}->{difficulty.BallSpeed:F2}, int {preInt:F2}->{difficulty.SpawnInterval:F2}"
+                );
+            }
         }
 
-        // 2) Применяем смещение (Bias) в спавнере
+        // 2) Bias можно применять отдельно (не мешает safety)
         if (spawner != null)
         {
             spawner.aiSpawnBias = Mathf.Clamp(
@@ -129,27 +296,16 @@ public class CoachAgent : Agent
             );
         }
 
-#if UNITY_EDITOR
+    #if UNITY_EDITOR
         if ((Time.frameCount & 31) == 0)
-            Debug.Log($"[AI] act: dSpawn={a0:F3}, dSpeed={a1:F3}, dTargetR={a2:F3}, dSpawnR={a3:F3}, bias={a4:F3}");
-#endif
+            Debug.Log($"[AI] act raw: a0={a0:F2} a1={a1:F2} a2={a2:F2} a3={a3:F2} a4={a4:F2}");
+    #endif
 
-        // 3) ОБНОВЛЕНИЕ UI: добавили SuccessRate (Шаг 2)
-        if (visualizer != null && difficulty != null && spawner != null)
-        {
-            float currentSR = perf != null ? perf.SuccessRate01 : 0f; // 0..1
+        // 3) UI — лучше показывать реально применённые дельты (а не raw a0/a1)
+        PushUI(_lastA1, _lastA0);
 
-            visualizer.UpdateDashboard(
-                difficulty.BallSpeed,        // speed
-                difficulty.SpawnInterval,    // interval
-                spawner.aiSpawnBias,         // bias
-                GetCumulativeReward(),       // reward
-                currentSR,                   // <-- SuccessRate (0..1)
-                a1,                          // speedDelta (нормированное действие -1..1)
-                a0                           // intervalDelta (нормированное действие -1..1)
-            );
-        }
     }
+
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {
@@ -189,25 +345,72 @@ public class CoachAgent : Agent
         if (_sinceLastDecision < decisionsEveryNResults) return;
         _sinceLastDecision = 0;
 
-        float sr = perf.SuccessRate01; // 0..1
-        float rt = Mathf.Clamp01(perf.MeanReactionSec / Mathf.Max(0.1f, maxReactionSec));
-        float rom = Mathf.Clamp01(perf.MeanRom01);
+        float sr = perf ? perf.SuccessRate01 : 0f;
+        float rt = perf ? Mathf.Clamp01(perf.MeanReactionSec / Mathf.Max(0.1f, maxReactionSec)) : 0f;
+        float rom = perf ? Mathf.Clamp01(perf.MeanRom01) : 0f;
 
-        float err = (sr - targetSR);
-        AddReward(1f - (err * err) / (targetSR * targetSR + 1e-6f)); // удерживаем SR возле targetSR
-        AddReward(+0.30f * rom);                                      // поощрение за ROM
-        AddReward(-0.20f * rt);                                       // штраф за долгие реакции
+        float act = 0f;
+        if (simLite != null) act = simLite.GetActivity01();
+        else act = Mathf.Clamp01(0.45f * rom + 0.35f * (1f - rt) + 0.20f * sr);
 
-        if (difficulty != null)
-            AddReward(-0.05f * difficulty.LastRoundChangeMagnitude01); // штраф за резкие скачки сложности
+        // EMA сглаживание по окнам
+        _srEma = Mathf.Lerp(_srEma, sr, emaAlpha);
+        _rtEma = Mathf.Lerp(_rtEma, rt, emaAlpha);
+        _romEma = Mathf.Lerp(_romEma, rom, emaAlpha);
+        _actEma = Mathf.Lerp(_actEma, act, emaAlpha);
 
-        _epWindowCount++;
-        if (_epWindowCount >= windowsPerEpisode)
+        // ===== Training reward (только когда подключён тренер) =====
+        bool isTraining = Academy.Instance.IsCommunicatorOn;
+
+        if (isTraining)
         {
-            EndEpisode();
-            return;
+            // смещаем цель внутри коридора по активности:
+            // активный -> 0.75, пассивный -> 0.80
+            float srAim = Mathf.Lerp(targetHigh, targetLow, _actEma);
+            float bandHalf = 0.5f * (targetHigh - targetLow); // 0.025
+            float e = Mathf.Abs(_srEma - srAim);
+
+            // 1) основной reward: максимум около srAim, отрицательный вне коридора
+            float rBand;
+            if (_srEma >= targetLow && _srEma <= targetHigh)
+                rBand = 1f - Mathf.Clamp01(e / Mathf.Max(1e-5f, bandHalf)); // 1..0
+            else
+                rBand = -Mathf.Clamp01(e / 0.10f); // штраф
+
+            AddReward(rBand);
+
+            // 2) поощряем БОЛЬШУЮ сложность, но только если SR внутри коридора
+            if (difficulty != null && _srEma >= targetLow && _srEma <= targetHigh)
+            {
+                var st = difficulty.GetState01();
+                float frequent01 = 1f - st.spawnInterval01;
+                float diff01 = Mathf.Clamp01(0.6f * st.ballSpeed01 + 0.4f * frequent01);
+                AddReward(0.20f * diff01);
+            }
+
+            // 3) анти-скачки
+            if (difficulty != null)
+                AddReward(-0.05f * difficulty.LastRoundChangeMagnitude01);
         }
 
-        Debug.Log($"[AI] result received: success={success}");
+        // ===== просим новое решение и применяем его ОДИН раз =====
+        _pendingApply = true;
+        _lastDecisionTime = Time.time;
+        RequestDecision();
+
+        // ===== episode только в training =====
+        if (isTraining)
+        {
+            _epWindowCount++;
+            if (_epWindowCount >= windowsPerEpisode)
+            {
+                EndEpisode();
+                return;
+            }
+        }
+
+        if (debugCoach)
+            Debug.Log($"[COACH] window SR={_srEma:F3} RT={_rtEma:F3} ROM={_romEma:F3} ACT={_actEma:F3}");
     }
+
 }
