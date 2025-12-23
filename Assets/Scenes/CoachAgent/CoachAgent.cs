@@ -74,11 +74,6 @@ public class CoachAgent : Agent
     private float _lastA0 = 0f; // интервал action (-1..1)
     private float _lastA1 = 0f; // speed action (-1..1)
 
-    private void Awake()
-    {
-        TryAutoWire();
-    }
-
     private void Start()
     {
         // Показать хотя бы стартовые значения
@@ -126,6 +121,12 @@ public class CoachAgent : Agent
         if (debugCoach) Debug.Log("[COACH] RequestDecision (timer)");
     }
 
+    protected override void Awake()
+    {
+        base.Awake();     // важно для ML-Agents Agent
+        TryAutoWire();    // твоё
+    }
+
     private void PushUI(float speedDelta01, float intervalDelta01)
     {
         // если ссылки потерялись/не назначены — попробуем подцепить снова
@@ -153,9 +154,6 @@ public class CoachAgent : Agent
         // этот лог теперь реально будет виден
         Debug.Log($"[UI] OK speed={difficulty.BallSpeed:F2} int={difficulty.SpawnInterval:F2} sr={sr01:F2}");
     }
-
-
-
 
     // Для отладки/внешних скриптов (если нужно)
     public float CurrentBallSpeed = 5f;
@@ -201,7 +199,6 @@ public class CoachAgent : Agent
 
         var st = difficulty ? difficulty.GetState01() : DifficultyController.State01.Zero;
 
-        // Итог: 8 наблюдений (Behavior Parameters → Space Size = 8)
         sensor.AddObservation(sr);                  // 1
         sensor.AddObservation(rt);                  // 2
         sensor.AddObservation(rom);                 // 3
@@ -209,7 +206,7 @@ public class CoachAgent : Agent
         sensor.AddObservation(st.ballSpeed01);      // 5
         sensor.AddObservation(st.targetRadius01);   // 6
         sensor.AddObservation(st.spawnRadius01);    // 7
-        sensor.AddObservation(activity01); // 8 (вместо reserve01)
+        sensor.AddObservation(activity01); // 8 ()
     }
 
     public override void OnActionReceived(ActionBuffers actions)
@@ -217,14 +214,12 @@ public class CoachAgent : Agent
         if (debugCoach && (Time.frameCount & 63) == 0)
         Debug.Log($"[COACH] OnActionReceived called pending={_pendingApply}");
 
-        // Применяем только ОДИН раз на один "mini-round" (когда OnResult запросил решение)
         if (!_pendingApply) return;
         _pendingApply = false;
 
         var a = actions.ContinuousActions;
         if (a.Length < 5) return;
 
-        // Нормированные действия (-1..1)
         float a0 = Mathf.Clamp(a[0], -1f, 1f); // dSpawn (интервал)
         float a1 = Mathf.Clamp(a[1], -1f, 1f); // dSpeed (скорость)
         float a2 = Mathf.Clamp(a[2], -1f, 1f); // dTargetR

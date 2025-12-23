@@ -152,6 +152,7 @@ public class BallSpawnerBallCatch : MonoBehaviour
         // ВАЖНО: если сложностью управляет Coach/DifficultyController — НЕ перетираем ballSpeed
         if (!externalDifficultyOverride)
             ballSpeed = baseBallSpeed;
+            TryUpdateActiveBallsSpeed(baseBallSpeed);
 
         speedIncreaseFactor = Mathf.Max(0.1f, sInc);
         speedDecreaseFactor = Mathf.Max(0.1f, sDec);
@@ -163,7 +164,9 @@ public class BallSpawnerBallCatch : MonoBehaviour
             InvokeRepeating(nameof(SpawnBall), 0.01f, spawnInterval);
         }
 
-        TryUpdateActiveBallsSpeed(baseBallSpeed);
+        if (!externalDifficultyOverride)
+            TryUpdateActiveBallsSpeed(baseBallSpeed);
+        // иначе НЕ трогаем активные шары — ими управляет DifficultyController/Coach
 
         Debug.Log($"[Spawner] Settings applied: spawn={spawnInterval:F2}s, speed(base)={baseBallSpeed:F2}, " +
                   $"inc×{speedIncreaseFactor:F2}, dec×{speedDecreaseFactor:F2}, redChance={redChance:0.##}");

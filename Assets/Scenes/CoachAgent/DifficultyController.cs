@@ -35,7 +35,7 @@ public class DifficultyController : MonoBehaviour
 
     // ===== Smoothing =====
     [Header("Smoothing")]
-    [Range(0f, 1f)] public float lerpRate = 0.30f;
+    [Range(0f, 1f)] public float lerpRate = 1f;
 
     // ===== Public readouts (used by CoachAgent/UI) =====
     [Header("Readouts")]
@@ -177,6 +177,8 @@ public class DifficultyController : MonoBehaviour
 
 #if UNITY_EDITOR
         Debug.Log($"[DIFF] speed={_ballSpeed:F2}, spawnInt={_spawnInterval:F2}, targetR={_targetRadius:F2}, spawnR={_spawnRadius:F2}");
+        Debug.Log($"[DIFF] speed={_ballSpeed:F2} min={minSpeed:F2} max={maxSpeed:F2}");
+
 #endif
     }
 
@@ -234,6 +236,7 @@ public class DifficultyController : MonoBehaviour
         if (spawner == null) return;
 
         spawner.externalDifficultyOverride = true;
+        spawner.selfAdaptive = false; // на ML лучше выключить
 
         // 0) держим клампы скорости в одном месте (иначе спавнер отрежет)
         spawner.ballSpeedClamp = new Vector2(minSpeed, maxSpeed);
