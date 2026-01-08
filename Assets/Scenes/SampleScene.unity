@@ -5268,16 +5268,17 @@ MonoBehaviour:
   - {fileID: 262392680}
   - {fileID: 1574854997}
   playerTransform: {fileID: 187372543281618720, guid: d8a19141f7d4ab148bb3b1899111e37b, type: 3}
+  externalDifficultyOverride: 1
+  debugSpawner: 0
   spawnInterval: 0.5
-  aiSpawnBias: 0
+  aiSpawnBias: 0.628
   ballSpeed: 0.2
   speedIncreaseFactor: 1.1
+  speedDecreaseFactor: 0.6
   selfAdaptive: 0
   ballSpeedClamp: {x: 0.2, y: 5}
-  speedDecreaseFactor: 0.6
   useColors: 0
   currentSpawnSpread: 0
-  externalDifficultyOverride: 1
   redChance: 0.35
   blueMaterial: {fileID: 2100000, guid: 963be82a8dbb863408a13c74ed241e59, type: 2}
   redMaterial: {fileID: 2100000, guid: 5b61eb418615c424c9f45933efa0eb06, type: 2}
@@ -20525,7 +20526,7 @@ MonoBehaviour:
   targetHigh: 0.8
   hysteresis: 0.005
   emaAlpha: 0.25
-  simLite: {fileID: 0}
+  simLite: {fileID: 196848750}
   rlWeight: 0.35
   debugCoach: 1
   driveDecisionsByTimer: 1

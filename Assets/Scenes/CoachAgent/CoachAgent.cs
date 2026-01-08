@@ -269,6 +269,13 @@ public class CoachAgent : Agent
 
             difficulty.ApplyDeltas(dSpawn, dSpeed, dTR, dSR);
 
+            if (spawner != null)
+                {
+                    spawner.externalDifficultyOverride = true;  // чтобы selfAdaptive/ApplySettings не перетёрли
+                    spawner.SetBallSpeed(difficulty.BallSpeed);
+                    spawner.SetSpawnInterval(difficulty.SpawnInterval);
+                }
+
             CurrentBallSpeed = difficulty.BallSpeed;
             CurrentSpawnRate = difficulty.SpawnInterval;
 
